@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compact Golf Score</title>
+
+<style>
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 8px;
+  font-size: 13px;
+}
+
+h2 {
+  margin: 4px 0 8px;
+  font-size: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+th, td {
+  border-bottom: 1px solid #ddd;
+  padding: 4px;
+  text-align: center;
+}
+
+th {
+  font-size: 12px;
+}
+
+input {
+  width: 42px;
+  font-size: 13px;
+  padding: 2px;
+}
+
+select {
+  font-size: 13px;
+}
+
+.round1 td {
+  background-color: #f9f9f9;
+}
+
+.round2 td {
+  background-color: #eef5ff;
+}
+
+.round-separator td {
+  background-color: #ddd;
+  font-weight: bold;
+  text-align: left;
+  border-top: 3px solid #999;
+}
+
+.round-total td {
+  font-weight: bold;
+  background-color: #eee;
+}
+
+.total {
+  font-size: 14px;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🏌️ Compact Golf</h2>
+
+<label>
+HCP:
+<select id="hcp" onchange="recalc()">
+  <option>52</option>
+  <option>50</option>
+  <option>48</option>
+  <option>46</option>
+</select>
+</label>
+
+<table>
+<thead>
+<tr>
+  <th>R</th>
+  <th>H</th>
+  <th>Par</th>
+  <th>+</th>
+  <th>Score</th>
+  <th>Pts</th>
+  <th>∑</th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+</table>
+
+<div class="total">
+Totaal: <span id="total">0</span> pts<br>
+Nieuwe HCP: <span id="newHcp">–</span>
+</div>
+
+<script>
+const course = [
+  {hole:1, par:3},{hole:2, par:3},{hole:3, par:4},
+  {hole:4, par:3},{hole:5, par:3},{hole:6, par:3}
+];
+
+const extraStrokes = {
+  52:{1:{1:2,2:2,3:2,4:2,5:2,6:2},2:{1:2,2:2,3:2,4:2,5:2,6:2}},
+  50:{1:{1:2,2:2,3:2,4:2,5:2,6:2},2:{1:2,2:2,3:2,4:1,5:1,6:1}},
+  48:{1:{1:1,2:2,3:2,4:2,5:1,6:1},2:{1:1,2:2,3:2,4:2,5:1,6:1}},
+  46:{1:{1:1,2:1,3:2,4:2,5:1,6:1},2:{1:1,2:1,3:2,4:1,5:1,6:1}}
+};
+
+const tbody = document.getElementById("rows");
+
+for (let r = 1; r <= 2; r++) {
+
+  tbody.innerHTML += `
+    <tr class="round-separator">
+      <td colspan="7">Ronde ${r}</td>
+    </tr>
+  `;
+
+  course.forEach((h, i) => {
+    tbody.innerHTML += `
+      <tr class="round${r}">
+        <td>${r}</td>
+        <td>${h.hole}</td>
+        <td>${h.par}</td>
+        <td id="e${r}${i}">0</td>
+        <td><input type="number" min="1" id="s${r}${i}" oninput="recalc()"></td>
+        <td id="p${r}${i}">0</td>
+        <td id="c${r}${i}">0</td>
+      </tr>`;
+  });
+
+  tbody.innerHTML += `
+    <tr class="round-total">
+      <td colspan="5">Totaal ronde ${r}</td>
+      <td id="rt${r}">0</td>
+      <td></td>
+    </tr>
+  `;
+}
+
+function recalc() {
+  const hcp = Number(document.getElementById("hcp").value);
+  let cumulative = 0;
+  let total = 0;
+  let roundTotals = {1:0, 2:0};
+
+  for (let r = 1; r <= 2; r++) {
+    course.forEach((h, i) => {
+      const extra = extraStrokes[hcp][r][h.hole];
+      const strokes = Number(document.getElementById(`s${r}${i}`).value);
+      const personalPar = h.par + extra;
+      const points = strokes
+        ? Math.max(0, 2 + (personalPar - strokes))
+        : 0;
+
+      cumulative += points;
+      total += points;
+      roundTotals[r] += points;
+
+      document.getElementById(`e${r}${i}`).innerText = extra;
+      document.getElementById(`p${r}${i}`).innerText = points;
+      document.getElementById(`c${r}${i}`).innerText = cumulative;
+    });
+
+    document.getElementById(`rt${r}`).innerText = roundTotals[r];
+  }
+
+  document.getElementById("total").innerText = total;
+
+  let newHcp = hcp;
+  if (total >= 30) newHcp = Math.max(45, hcp - 4);
+  else if (total >= 25) newHcp = hcp - 2;
+
+  document.getElementById("newHcp").innerText = newHcp;
+}
+</script>
+
+</body>
+</html>
