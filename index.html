@@ -1,190 +1,596 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compact Golf Score</title>
+<title>Compact Golf</title>
 
 <style>
+:root {
+  --green: #173d2a;
+  --line: #ddd;
+}
+
+* { box-sizing: border-box; }
+
 body {
   font-family: system-ui, -apple-system, sans-serif;
   margin: 8px;
   font-size: 13px;
+  color: #222;
 }
 
-h2 {
-  margin: 4px 0 8px;
-  font-size: 16px;
+h1, h2 { margin: 4px 0 10px; }
+h1 { font-size: 22px; }
+h2 { font-size: 17px; }
+
+button, select, input { font: inherit; }
+button { cursor: pointer; }
+
+.home-header {
+  text-align: center;
+  padding: 26px 8px 18px;
+}
+
+.home-header .emoji { font-size: 38px; }
+.home-header h1 { color: var(--green); }
+.home-header p { color: #666; }
+
+.menu {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  max-width: 520px;
+  margin: 12px auto;
+}
+
+.menu-button {
+  border: 1px solid #cbd6cc;
+  border-radius: 12px;
+  background: white;
+  padding: 18px 16px;
+  text-align: left;
+  color: #222;
+}
+
+.menu-button strong {
+  display: block;
+  color: var(--green);
+  font-size: 17px;
+  margin-bottom: 5px;
+}
+
+.menu-button span {
+  display: block;
+  color: #666;
+  line-height: 1.4;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.back {
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.topbar h2 { margin: 0; }
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 12px;
+  align-items: center;
+}
+
+label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+select { padding: 4px; }
+
+input[type="number"] {
+  width: 42px;
+  padding: 3px 2px;
+  text-align: center;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 8px;
+  margin: 8px 0 12px;
 }
 
 th, td {
-  border-bottom: 1px solid #ddd;
-  padding: 4px;
+  border-bottom: 1px solid var(--line);
+  padding: 5px 2px;
   text-align: center;
 }
 
 th {
-  font-size: 12px;
+  font-size: 11px;
+  background: #f0f0f0;
 }
 
-input {
-  width: 42px;
-  font-size: 13px;
-  padding: 2px;
-}
-
-select {
-  font-size: 13px;
-}
-
-.round1 td {
-  background-color: #f9f9f9;
-}
-
-.round2 td {
-  background-color: #eef5ff;
-}
+.round1 td { background: #f9f9f9; }
+.round2 td { background: #eef5ff; }
 
 .round-separator td {
-  background-color: #ddd;
+  background: #ddd;
   font-weight: bold;
   text-align: left;
   border-top: 3px solid #999;
 }
 
-.round-total td {
+.round-total td, .total-row td {
   font-weight: bold;
-  background-color: #eee;
+  background: #eee;
 }
 
 .total {
   font-size: 14px;
   font-weight: bold;
 }
+
+.summary {
+  border: 1px solid #ddd;
+  border-radius: 9px;
+  padding: 10px;
+  line-height: 1.9;
+  margin-top: 10px;
+}
+
+.big {
+  font-size: 19px;
+  font-weight: bold;
+  color: var(--green);
+}
+
+.note {
+  color: #666;
+  font-size: 11px;
+  line-height: 1.45;
+  margin-top: 10px;
+}
+
+.hidden { display: none !important; }
+
+@media (min-width: 520px) {
+  .menu { grid-template-columns: 1fr 1fr; }
+  body {
+    max-width: 760px;
+    margin: 12px auto;
+    padding: 0 8px;
+  }
+}
+
+@media (max-width: 380px) {
+  body { margin: 4px; }
+  th, td { padding: 5px 1px; }
+  input[type="number"] { width: 32px; }
+}
 </style>
 </head>
 
 <body>
 
-<h2>🏌️ Compact Golf</h2>
+<!-- LANDINGSPAGINA -->
 
-<label>
-HCP:
-<select id="hcp" onchange="recalc()">
-  <option>52</option>
-  <option>50</option>
-  <option>48</option>
-  <option>46</option>
-</select>
-</label>
+<section id="landing">
+  <div class="home-header">
+    <div class="emoji">🏌️</div>
+    <h1>Compact Golf</h1>
+    <p>Kies je scorekaart</p>
+  </div>
 
-<table>
-<thead>
-<tr>
-  <th>R</th>
-  <th>H</th>
-  <th>Par</th>
-  <th>+</th>
-  <th>Score</th>
-  <th>Pts</th>
-  <th>∑</th>
-</tr>
-</thead>
-<tbody id="rows"></tbody>
-</table>
+  <div class="menu">
+    <button class="menu-button" onclick="showPage('compact')">
+      <strong>Compact Golf</strong>
+      <span>
+        De originele calculator met 2 rondes van 6 holes
+        en HCP 52, 50, 48 of 46.
+      </span>
+    </button>
 
-<div class="total">
-Totaal: <span id="total">0</span> pts<br>
-Nieuwe HCP: <span id="newHcp">–</span>
-</div>
+    <button class="menu-button" onclick="showPage('rabbit')">
+      <strong>Waregem Rabbit — Front 9</strong>
+      <span>
+        De eerste 9 holes van Golf Waregem, met tee-keuze,
+        handicap en Stableford-punten.
+      </span>
+    </button>
+  </div>
+</section>
+
+
+<!-- BESTAANDE COMPACT GOLF -->
+
+<section id="compactPage" class="hidden">
+  <div class="topbar">
+    <button class="back" onclick="showPage('home')">← Menu</button>
+    <h2>🏌️ Compact Golf</h2>
+  </div>
+
+  <label>
+    HCP:
+    <select id="hcp" onchange="recalcCompact()">
+      <option>52</option>
+      <option>50</option>
+      <option>48</option>
+      <option>46</option>
+    </select>
+  </label>
+
+  <table>
+    <thead>
+      <tr>
+        <th>R</th>
+        <th>H</th>
+        <th>Par</th>
+        <th>+</th>
+        <th>Score</th>
+        <th>Pts</th>
+        <th>∑</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div class="total">
+    Totaal: <span id="total">0</span> pts<br>
+    Nieuwe HCP: <span id="newHcp">–</span>
+  </div>
+</section>
+
+
+<!-- WAREGEM RABBIT FRONT 9 -->
+
+<section id="rabbitPage" class="hidden">
+  <div class="topbar">
+    <button class="back" onclick="showPage('home')">← Menu</button>
+    <h2>Waregem Rabbit — Front 9</h2>
+  </div>
+
+  <div class="settings">
+    <label>
+      HCP:
+      <select id="rabbitHcp" onchange="recalcRabbit()">
+        <option>45</option>
+        <option>44</option>
+        <option>43</option>
+        <option>42</option>
+        <option>41</option>
+        <option>40</option>
+        <option>39</option>
+        <option>38</option>
+        <option>37</option>
+        <option>36</option>
+      </select>
+    </label>
+
+    <label>
+      Tee:
+      <select id="tee" onchange="recalcRabbit()">
+        <option value="blue" selected>Blauw heren</option>
+        <option value="yellow">Geel heren</option>
+        <option value="white">Wit heren</option>
+        <option value="red">Rood</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="summary">
+    Playing HCP (9 holes):
+    <strong id="phcp">21</strong>
+    <div id="teeInfo"></div>
+
+    <label style="margin-top:5px">
+      PHCP aanpassen:
+      <input
+        id="phcpOverride"
+        type="number"
+        min="0"
+        max="54"
+        value="21"
+        oninput="recalcRabbit(true)">
+    </label>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Hole</th>
+        <th>Par</th>
+        <th>SI</th>
+        <th>+</th>
+        <th>Score</th>
+        <th>Brut</th>
+        <th>Net</th>
+        <th>∑</th>
+      </tr>
+    </thead>
+    <tbody id="rabbitRows"></tbody>
+  </table>
+
+  <div class="summary">
+    Slagen: <strong id="rabbitStrokes">0</strong><br>
+    Par: <strong>37</strong><br>
+    Brutopunten: <strong id="brutTotal">0</strong><br>
+    Nettopunten:
+    <span class="big" id="netTotal">0</span>
+  </div>
+
+  <div class="note">
+    De tee-ratings hieronder zijn voorlopige waarden.
+    Controleer ze met de actuele officiële baaninformatie.
+    De berekende PHCP is indicatief; je kunt de PHCP
+    aanpassen aan de waarde op je officiële scorekaart.
+  </div>
+</section>
+
 
 <script>
-const course = [
-  {hole:1, par:3},{hole:2, par:3},{hole:3, par:4},
-  {hole:4, par:3},{hole:5, par:3},{hole:6, par:3}
+
+/* =====================================
+   NAVIGATIE
+===================================== */
+
+function showPage(page) {
+  document.getElementById("landing")
+    .classList.toggle("hidden", page !== "home");
+
+  document.getElementById("compactPage")
+    .classList.toggle("hidden", page !== "compact");
+
+  document.getElementById("rabbitPage")
+    .classList.toggle("hidden", page !== "rabbit");
+
+  if (page === "compact") recalcCompact();
+  if (page === "rabbit") recalcRabbit();
+
+  window.scrollTo(0, 0);
+}
+
+
+/* =====================================
+   COMPACT GOLF — ORIGINELE VERSIE
+===================================== */
+
+const compactCourse = [
+  {hole:1, par:3},
+  {hole:2, par:3},
+  {hole:3, par:4},
+  {hole:4, par:3},
+  {hole:5, par:3},
+  {hole:6, par:3}
 ];
 
-const extraStrokes = {
-  52:{1:{1:2,2:2,3:2,4:2,5:2,6:2},2:{1:2,2:2,3:2,4:2,5:2,6:2}},
-  50:{1:{1:2,2:2,3:2,4:2,5:2,6:2},2:{1:2,2:2,3:2,4:1,5:1,6:1}},
-  48:{1:{1:1,2:2,3:2,4:2,5:1,6:1},2:{1:1,2:2,3:2,4:2,5:1,6:1}},
-  46:{1:{1:1,2:1,3:2,4:2,5:1,6:1},2:{1:1,2:1,3:2,4:1,5:1,6:1}}
+const compactExtraStrokes = {
+  52: {
+    1:{1:2,2:2,3:2,4:2,5:2,6:2},
+    2:{1:2,2:2,3:2,4:2,5:2,6:2}
+  },
+  50: {
+    1:{1:2,2:2,3:2,4:2,5:2,6:2},
+    2:{1:2,2:2,3:2,4:1,5:1,6:1}
+  },
+  48: {
+    1:{1:1,2:2,3:2,4:2,5:1,6:1},
+    2:{1:1,2:2,3:2,4:2,5:1,6:1}
+  },
+  46: {
+    1:{1:1,2:1,3:2,4:2,5:1,6:1},
+    2:{1:1,2:1,3:2,4:1,5:1,6:1}
+  }
 };
 
-const tbody = document.getElementById("rows");
+const compactTbody = document.getElementById("rows");
 
 for (let r = 1; r <= 2; r++) {
-
-  tbody.innerHTML += `
+  compactTbody.innerHTML += `
     <tr class="round-separator">
       <td colspan="7">Ronde ${r}</td>
-    </tr>
-  `;
+    </tr>`;
 
-  course.forEach((h, i) => {
-    tbody.innerHTML += `
+  compactCourse.forEach((h, i) => {
+    compactTbody.innerHTML += `
       <tr class="round${r}">
         <td>${r}</td>
         <td>${h.hole}</td>
         <td>${h.par}</td>
-        <td id="e${r}${i}">0</td>
-        <td><input type="number" min="1" id="s${r}${i}" oninput="recalc()"></td>
-        <td id="p${r}${i}">0</td>
-        <td id="c${r}${i}">0</td>
+        <td id="ce${r}${i}">0</td>
+        <td>
+          <input type="number" min="1"
+            id="cs${r}${i}" oninput="recalcCompact()">
+        </td>
+        <td id="cp${r}${i}">0</td>
+        <td id="cc${r}${i}">0</td>
       </tr>`;
   });
 
-  tbody.innerHTML += `
+  compactTbody.innerHTML += `
     <tr class="round-total">
       <td colspan="5">Totaal ronde ${r}</td>
-      <td id="rt${r}">0</td>
+      <td id="crt${r}">0</td>
       <td></td>
-    </tr>
-  `;
+    </tr>`;
 }
 
-function recalc() {
+function recalcCompact() {
   const hcp = Number(document.getElementById("hcp").value);
   let cumulative = 0;
   let total = 0;
-  let roundTotals = {1:0, 2:0};
+  const roundTotals = {1:0, 2:0};
 
   for (let r = 1; r <= 2; r++) {
-    course.forEach((h, i) => {
-      const extra = extraStrokes[hcp][r][h.hole];
-      const strokes = Number(document.getElementById(`s${r}${i}`).value);
-      const personalPar = h.par + extra;
-      const points = strokes
-        ? Math.max(0, 2 + (personalPar - strokes))
+    compactCourse.forEach((h, i) => {
+      const extra = compactExtraStrokes[hcp][r][h.hole];
+      const field = document.getElementById(`cs${r}${i}`);
+      const strokes = Number(field.value);
+
+      const points = field.value !== "" && strokes > 0
+        ? Math.max(0, 2 + h.par + extra - strokes)
         : 0;
 
       cumulative += points;
       total += points;
       roundTotals[r] += points;
 
-      document.getElementById(`e${r}${i}`).innerText = extra;
-      document.getElementById(`p${r}${i}`).innerText = points;
-      document.getElementById(`c${r}${i}`).innerText = cumulative;
+      document.getElementById(`ce${r}${i}`).textContent = extra;
+      document.getElementById(`cp${r}${i}`).textContent = points;
+      document.getElementById(`cc${r}${i}`).textContent = cumulative;
     });
 
-    document.getElementById(`rt${r}`).innerText = roundTotals[r];
+    document.getElementById(`crt${r}`).textContent = roundTotals[r];
   }
 
-  document.getElementById("total").innerText = total;
+  document.getElementById("total").textContent = total;
 
   let newHcp = hcp;
+
   if (total >= 30) newHcp = Math.max(45, hcp - 4);
   else if (total >= 25) newHcp = hcp - 2;
 
-  document.getElementById("newHcp").innerText = newHcp;
+  document.getElementById("newHcp").textContent = newHcp;
 }
-</script>
 
+
+/* =====================================
+   WAREGEM RABBIT — FRONT 9
+===================================== */
+
+const rabbitCourse = [
+  {hole:1, par:4, si:5},
+  {hole:2, par:3, si:8},
+  {hole:3, par:5, si:2},
+  {hole:4, par:4, si:1},
+  {hole:5, par:4, si:9},
+  {hole:6, par:4, si:4},
+  {hole:7, par:4, si:3},
+  {hole:8, par:4, si:7},
+  {hole:9, par:5, si:6}
+];
+
+/*
+  Voorlopige waarden voor de 18-holes ratings.
+  Verifieer deze bij Golf Waregem voor officieel gebruik.
+*/
+const teeRatings = {
+  white:  {name:"Wit", rating:71.3, slope:127},
+  yellow: {name:"Geel", rating:69.2, slope:120},
+  blue:   {name:"Blauw heren", rating:66.9, slope:116},
+  red:    {name:"Rood", rating:65.4, slope:113}
+};
+
+const rabbitTbody = document.getElementById("rabbitRows");
+
+rabbitCourse.forEach(h => {
+  rabbitTbody.innerHTML += `
+    <tr>
+      <td>${h.hole}</td>
+      <td>${h.par}</td>
+      <td>${h.si}</td>
+      <td id="re${h.hole}">0</td>
+      <td>
+        <input type="number" min="1" max="20"
+          inputmode="numeric"
+          id="rs${h.hole}" oninput="recalcRabbit()">
+      </td>
+      <td id="rb${h.hole}">–</td>
+      <td id="rn${h.hole}">–</td>
+      <td id="rc${h.hole}">0</td>
+    </tr>`;
+});
+
+function recalcRabbit(manual = false) {
+  const hcp = Number(document.getElementById("rabbitHcp").value);
+  const tee = teeRatings[document.getElementById("tee").value];
+
+  // Indicatieve schatting; officiële PHCP kan afwijken.
+  const estimatedPHCP = Math.max(
+    0,
+    Math.round((hcp * (tee.slope / 113) +
+    (tee.rating - 72)) / 2)
+  );
+
+  const override = document.getElementById("phcpOverride");
+
+  if (!manual) {
+    override.value = estimatedPHCP;
+  }
+
+  const phcp = Math.max(
+    0,
+    Math.min(54, Number(override.value) || 0)
+  );
+
+  document.getElementById("phcp").textContent = phcp;
+
+  document.getElementById("teeInfo").textContent =
+    `${tee.name} · Course Rating ${tee.rating} · Slope ${tee.slope}`;
+
+  // Eerst gelijkmatig verdelen, daarna resterende slagen
+  // toewijzen aan holes met de laagste SI.
+  const base = Math.floor(phcp / 9);
+  const remainder = phcp % 9;
+
+  let strokesTotal = 0;
+  let brutTotal = 0;
+  let netTotal = 0;
+  let cumulative = 0;
+
+  rabbitCourse.forEach(h => {
+    const extra = base + (h.si <= remainder ? 1 : 0);
+    const field = document.getElementById(`rs${h.hole}`);
+    const hasScore = field.value !== "" && Number(field.value) > 0;
+    const strokes = Number(field.value);
+
+    const brut = hasScore
+      ? Math.max(0, 2 + h.par - strokes)
+      : 0;
+
+    const net = hasScore
+      ? Math.max(0, 2 + h.par + extra - strokes)
+      : 0;
+
+    if (hasScore) {
+      strokesTotal += strokes;
+      brutTotal += brut;
+      netTotal += net;
+      cumulative += net;
+    }
+
+    document.getElementById(`re${h.hole}`).textContent = extra;
+    document.getElementById(`rb${h.hole}`).textContent =
+      hasScore ? brut : "–";
+    document.getElementById(`rn${h.hole}`).textContent =
+      hasScore ? net : "–";
+    document.getElementById(`rc${h.hole}`).textContent = cumulative;
+  });
+
+  document.getElementById("rabbitStrokes").textContent = strokesTotal;
+  document.getElementById("brutTotal").textContent = brutTotal;
+  document.getElementById("netTotal").textContent = netTotal;
+}
+
+
+/* =====================================
+   INITIALISATIE
+===================================== */
+
+recalcCompact();
+recalcRabbit();
+
+</script>
 </body>
 </html>
