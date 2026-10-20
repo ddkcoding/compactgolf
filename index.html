@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compact Golf</title>
+<title>Golf Scorec</title>
 
 <style>
 :root {
@@ -189,13 +189,13 @@ th {
 <section id="landing">
   <div class="home-header">
     <div class="emoji">🏌️</div>
-    <h1>Compact Golf</h1>
+    <h1>Waregem Golf Score</h1>
     <p>Kies je scorekaart</p>
   </div>
 
   <div class="menu">
     <button class="menu-button" onclick="showPage('compact')">
-      <strong>Compact Golf</strong>
+      <strong>Waregem Compact</strong>
       <span>
         De originele calculator met 2 rondes van 6 holes
         en HCP 52, 50, 48 of 46.
@@ -278,15 +278,14 @@ th {
       </select>
     </label>
 
-    <label>
-      Tee:
-      <select id="tee" onchange="recalcRabbit()">
-        <option value="blue" selected>Blauw heren</option>
-        <option value="yellow">Geel heren</option>
-        <option value="white">Wit heren</option>
-        <option value="red">Rood</option>
-      </select>
-    </label>
+<label>Tee:
+  <select id="tee" onchange="recalcRabbit()">
+    <option value="red">Rood</option>
+    <option value="blue" selected>Blauw heren</option>
+    <option value="yellow">Geel heren</option>
+    <option value="white">Wit heren</option>
+  </select>
+</label>
   </div>
 
   <div class="summary">
