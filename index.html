@@ -164,6 +164,9 @@ th {
 }
 
 .hidden { display: none !important; }
+#historyChart { width:100%; max-height:260px; }
+#historyList .summary { margin-bottom:10px; }
+button:disabled { opacity:.5; cursor:not-allowed; }
 
 @media (min-width: 520px) {
   .menu { grid-template-columns: 1fr 1fr; }
@@ -180,6 +183,7 @@ th {
   input[type="number"] { width: 32px; }
 }
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -209,7 +213,49 @@ th {
         handicap en Stableford-punten.
       </span>
     </button>
+
+    <button class="menu-button" onclick="showPage('account')">
+      <strong>Mijn account</strong>
+      <span>Aanmelden om je rondes online te bewaren.</span>
+    </button>
+
+    <button class="menu-button" onclick="showPage('history')">
+      <strong>Mijn historiek & evolutie</strong>
+      <span>Bekijk je opgeslagen rondes en evolutie van Stableford-punten.</span>
+    </button>
   </div>
+</section>
+
+<section id="accountPage" class="hidden">
+  <div class="topbar">
+    <button class="back" onclick="showPage('home')">← Menu</button>
+    <h2>Mijn account</h2>
+  </div>
+  <div class="summary">
+    <p id="authStatus">Niet aangemeld.</p>
+    <label style="margin:8px 0">E-mailadres <input id="authEmail" type="email" autocomplete="email" style="width: min(100%, 260px);"></label>
+    <label style="margin:8px 0">Wachtwoord <input id="authPassword" type="password" autocomplete="current-password" style="width: min(100%, 260px);"></label>
+    <div class="settings">
+      <button class="back" onclick="signIn()">Aanmelden</button>
+      <button class="back" onclick="signUp()">Account aanmaken</button>
+      <button class="back" onclick="signOut()">Afmelden</button>
+    </div>
+    <p class="note">Gebruik je eigen account. Je rondes zijn alleen zichtbaar voor jouw aangemelde account.</p>
+    <p id="authMessage" role="status"></p>
+  </div>
+</section>
+
+<section id="historyPage" class="hidden">
+  <div class="topbar">
+    <button class="back" onclick="showPage('home')">← Menu</button>
+    <h2>Mijn historiek & evolutie</h2>
+  </div>
+  <p id="historyMessage">Meld je aan om je historiek te bekijken.</p>
+  <div class="summary">
+    <strong>Evolutie nettopunten</strong>
+    <canvas id="historyChart" height="180" aria-label="Grafiek evolutie nettopunten"></canvas>
+  </div>
+  <div id="historyList"></div>
 </section>
 
 
@@ -329,6 +375,12 @@ th {
     <span class="big" id="netTotal">0</span>
   </div>
 
+  <div class="settings" style="margin-top:12px">
+    <label>Datum <input type="date" id="rabbitDate"></label>
+    <button class="menu-button" style="padding:10px 14px" onclick="saveRabbitRound()">Ronde bewaren</button>
+  </div>
+  <p id="saveMessage" role="status"></p>
+
   <div class="note">
     De tee-ratings hieronder zijn voorlopige waarden.
     Controleer ze met de actuele officiële baaninformatie.
@@ -345,18 +397,19 @@ th {
 ===================================== */
 
 function showPage(page) {
-  document.getElementById("landing")
-    .classList.toggle("hidden", page !== "home");
-
-  document.getElementById("compactPage")
-    .classList.toggle("hidden", page !== "compact");
-
-  document.getElementById("rabbitPage")
-    .classList.toggle("hidden", page !== "rabbit");
-
+  ["landing","compactPage","rabbitPage","accountPage","historyPage"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden",
+      (page === "home" && id !== "landing") ||
+      (page === "compact" && id !== "compactPage") ||
+      (page === "rabbit" && id !== "rabbitPage") ||
+      (page === "account" && id !== "accountPage") ||
+      (page === "history" && id !== "historyPage"));
+  });
   if (page === "compact") recalcCompact();
-  if (page === "rabbit") recalcRabbit();
-
+  if (page === "rabbit") recalcRabbit(false, true);
+  if (page === "history") loadHistory();
+  if (page === "account") refreshAuthStatus();
   window.scrollTo(0, 0);
 }
 
@@ -511,7 +564,7 @@ rabbitCourse.forEach(h => {
     </tr>`;
 });
 
-function recalcRabbit(manual = false) {
+function recalcRabbit(manual = false, preserveOverride = false) {
   const hcp = Number(document.getElementById("rabbitHcp").value);
   const tee = teeRatings[document.getElementById("tee").value];
 
@@ -524,7 +577,7 @@ function recalcRabbit(manual = false) {
 
   const override = document.getElementById("phcpOverride");
 
-  if (!manual) {
+  if (!manual && !preserveOverride) {
     override.value = estimatedPHCP;
   }
 
@@ -584,9 +637,204 @@ function recalcRabbit(manual = false) {
 
 
 /* =====================================
-   INITIALISATIE
+   SUPABASE — VUL HIER JE EIGEN GEGEVENS IN
 ===================================== */
 
+// Gebruik de Project URL en Publishable key uit Supabase.
+// Plaats hier NOOIT een sb_secret- of service_role-sleutel.
+const SUPABASE_URL = "https://ycfcuxhpmzvpuxliribx.supabase.co/";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_UkHa2VoHOrzeHAjgSuqFTA_nCfsLbJt";
+const keyLooksPublic =
+  SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_") ||
+  SUPABASE_PUBLISHABLE_KEY.startsWith("eyJ"); // oudere anon-key
+const supabaseConfigured =
+  SUPABASE_URL.startsWith("https://") &&
+  !SUPABASE_URL.includes("VUL_HIER") &&
+  keyLooksPublic &&
+  !SUPABASE_PUBLISHABLE_KEY.includes("VUL_HIER") &&
+  !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_secret_");
+const db = (window.supabase && supabaseConfigured)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+  : null;
+
+function setMessage(id, message) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = message;
+}
+function explainSupabaseSetup() {
+  if (!db) {
+    setMessage("authMessage", "Vul eerst SUPABASE_URL en SUPABASE_PUBLISHABLE_KEY in bovenaan het Supabase-gedeelte van de code.");
+    setMessage("historyMessage", "De Supabase-verbinding is nog niet ingesteld.");
+    return false;
+  }
+  return true;
+}
+async function refreshAuthStatus() {
+  if (!db) {
+    setMessage("authStatus", "Supabase is nog niet ingesteld in de code.");
+    return;
+  }
+  const { data: { user } } = await db.auth.getUser();
+  setMessage("authStatus", user ? `Aangemeld als ${user.email}` : "Niet aangemeld.");
+}
+async function signUp() {
+  if (!explainSupabaseSetup()) return;
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  if (!email || password.length < 6) {
+    setMessage("authMessage", "Vul je e-mailadres in en kies een wachtwoord van minstens 6 tekens.");
+    return;
+  }
+  const { data, error } = await db.auth.signUp({ email, password });
+  if (error) {
+    setMessage("authMessage", error.message);
+    return;
+  }
+  setMessage("authMessage", data.session
+    ? "Account aangemaakt en aangemeld."
+    : "Account aangemaakt. Controleer je e-mail om je account te bevestigen.");
+  refreshAuthStatus();
+}
+async function signIn() {
+  if (!explainSupabaseSetup()) return;
+  const email = document.getElementById("authEmail").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const { data, error } = await db.auth.signInWithPassword({ email, password });
+  if (error) {
+    setMessage("authMessage", error.message);
+    return;
+  }
+  setMessage("authMessage", "Je bent aangemeld.");
+  setMessage("authStatus", `Aangemeld als ${data.user.email}`);
+}
+async function signOut() {
+  if (!db) return;
+  const { error } = await db.auth.signOut();
+  setMessage("authMessage", error ? error.message : "Je bent afgemeld.");
+  refreshAuthStatus();
+}
+async function saveRabbitRound() {
+  if (!explainSupabaseSetup()) return;
+  const { data: { user }, error: userError } = await db.auth.getUser();
+  if (userError || !user) {
+    setMessage("saveMessage", "Meld je eerst aan via ‘Mijn account’ voordat je een ronde bewaart.");
+    return;
+  }
+  const scores = rabbitCourse.map(h => {
+    const field = document.getElementById(`rs${h.hole}`);
+    return { hole: h.hole, par: h.par, si: h.si, strokes: field.value === "" ? null : Number(field.value) };
+  });
+  if (scores.some(s => !Number.isInteger(s.strokes) || s.strokes < 1 || s.strokes > 20)) {
+    setMessage("saveMessage", "Vul eerst een geldige score in voor alle 9 holes.");
+    return;
+  }
+  const tee = document.getElementById("tee").value;
+  const phcp = Number(document.getElementById("phcpOverride").value);
+  const totalStrokes = scores.reduce((sum, s) => sum + s.strokes, 0);
+  const grossPoints = Number(document.getElementById("brutTotal").textContent);
+  const netPoints = Number(document.getElementById("netTotal").textContent);
+  const playedAt = document.getElementById("rabbitDate").value || new Date().toISOString().slice(0,10);
+  setMessage("saveMessage", "Ronde wordt bewaard…");
+  const { data: round, error: roundError } = await db.from("golf_rounds").insert({
+    user_id: user.id,
+    played_at: playedAt,
+    course: "Waregem Golf",
+    course_type: "Rabbit Front 9",
+    tee,
+    handicap_index: Number(document.getElementById("rabbitHcp").value),
+    playing_handicap: phcp,
+    total_strokes: totalStrokes,
+    gross_points: grossPoints,
+    net_points: netPoints
+  }).select("id").single();
+  if (roundError) {
+    setMessage("saveMessage", "Bewaren mislukt: " + roundError.message);
+    return;
+  }
+  const holeRows = scores.map(s => ({
+    round_id: round.id,
+    hole_number: s.hole,
+    par: s.par,
+    stroke_index: s.si,
+    extra_strokes: Number(document.getElementById(`re${s.hole}`).textContent),
+    strokes: s.strokes,
+    gross_points: Number(document.getElementById(`rb${s.hole}`).textContent),
+    net_points: Number(document.getElementById(`rn${s.hole}`).textContent)
+  }));
+  const { error: holesError } = await db.from("golf_hole_scores").insert(holeRows);
+  if (holesError) {
+    await db.from("golf_rounds").delete().eq("id", round.id);
+    setMessage("saveMessage", "De holes konden niet worden bewaard: " + holesError.message);
+    return;
+  }
+  setMessage("saveMessage", "Ronde succesvol bewaard in je online historiek.");
+}
+async function loadHistory() {
+  const list = document.getElementById("historyList");
+  list.innerHTML = "";
+  if (!explainSupabaseSetup()) return;
+  const { data: { user } } = await db.auth.getUser();
+  if (!user) {
+    setMessage("historyMessage", "Meld je aan via ‘Mijn account’ om je historiek te bekijken.");
+    drawHistoryChart([]);
+    return;
+  }
+  const { data, error } = await db.from("golf_rounds")
+    .select("id, played_at, course, course_type, tee, handicap_index, playing_handicap, total_strokes, gross_points, net_points")
+    .eq("user_id", user.id)
+    .order("played_at", { ascending: true });
+  if (error) {
+    setMessage("historyMessage", "Historiek laden mislukt: " + error.message);
+    return;
+  }
+  setMessage("historyMessage", data.length ? `${data.length} opgeslagen ronde(s).` : "Je hebt nog geen rondes opgeslagen.");
+  drawHistoryChart(data);
+  [...data].reverse().forEach(round => {
+    const card = document.createElement("div");
+    card.className = "summary";
+    const teeNames = {red:"Rood",blue:"Blauw",yellow:"Geel",white:"Wit"};
+    card.innerHTML = `<strong>${round.played_at}</strong><br>${round.course} — ${round.course_type}<br>Tee: ${teeNames[round.tee] || round.tee} · HCP ${round.handicap_index} · PHCP ${round.playing_handicap}<br>Slagen: ${round.total_strokes} · Bruto: ${round.gross_points} punten · Netto: <strong>${round.net_points} punten</strong>`;
+    list.appendChild(card);
+  });
+}
+function drawHistoryChart(rounds) {
+  const canvas = document.getElementById("historyChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.clientWidth || 320;
+  const height = 220;
+  canvas.width = width * (window.devicePixelRatio || 1);
+  canvas.height = height * (window.devicePixelRatio || 1);
+  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+  ctx.clearRect(0, 0, width, height);
+  if (!rounds.length) {
+    ctx.fillStyle = "#666"; ctx.font = "13px sans-serif";
+    ctx.fillText("Bewaar eerst een ronde om de grafiek te zien.", 8, 28);
+    return;
+  }
+  const pad = {left:32,right:12,top:15,bottom:35};
+  const values = rounds.map(r => Number(r.net_points || 0));
+  const maxVal = Math.max(10, Math.ceil(Math.max(...values) / 5) * 5);
+  const x = i => pad.left + (rounds.length === 1 ? (width-pad.left-pad.right)/2 : i*(width-pad.left-pad.right)/(rounds.length-1));
+  const y = v => height-pad.bottom-(v/maxVal)*(height-pad.top-pad.bottom);
+  ctx.font = "11px sans-serif"; ctx.fillStyle="#666"; ctx.strokeStyle="#ddd"; ctx.lineWidth=1;
+  for(let v=0; v<=maxVal; v+=5){ctx.beginPath();ctx.moveTo(pad.left,y(v));ctx.lineTo(width-pad.right,y(v));ctx.stroke();ctx.fillText(String(v),5,y(v)+4);}
+  ctx.strokeStyle="#173d2a";ctx.lineWidth=2;ctx.beginPath();
+  values.forEach((v,i)=>{if(i===0)ctx.moveTo(x(i),y(v));else ctx.lineTo(x(i),y(v));});ctx.stroke();
+  values.forEach((v,i)=>{ctx.fillStyle="#173d2a";ctx.beginPath();ctx.arc(x(i),y(v),3,0,Math.PI*2);ctx.fill();});
+  ctx.fillStyle="#666";
+  const indexes = rounds.length <= 6 ? rounds.map((_,i)=>i) : [0,Math.floor((rounds.length-1)/2),rounds.length-1];
+  indexes.forEach(i=>ctx.fillText(String(rounds[i].played_at).slice(5),x(i)-14,height-12));
+}
+if (window.supabase) {
+  // Toon accountstatus opnieuw wanneer de aanmeldstatus verandert.
+  // Geen geheime sleutel staat in de clientcode.
+  window.addEventListener("resize", () => {
+    if (!document.getElementById("historyPage").classList.contains("hidden")) loadHistory();
+  });
+}
+
+document.getElementById("rabbitDate").value = new Date().toISOString().slice(0,10);
 recalcCompact();
 recalcRabbit();
 
