@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Golf Scorec</title>
+<title>Golf Score</title>
 
 <style>
 :root {
@@ -165,10 +165,14 @@ th {
 
 .hidden { display: none !important; }
 #historyChart { width:100%; max-height:260px; }
-#historyList .summary { margin-bottom:8px; padding:8px 10px; line-height:1.45; }
-.history-line { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-.history-line + .history-line { margin-top:4px; color:#555; }
-.delete-round { border:1px solid #c66; color:#9b1c1c; background:#fff; border-radius:7px; padding:4px 8px; white-space:nowrap; }
+#historyList { overflow-x:auto; margin-top:10px; }
+#historyTable { width:100%; border-collapse:collapse; font-size:13px; white-space:nowrap; }
+#historyTable th, #historyTable td { padding:9px 7px; border-bottom:1px solid #ddd; text-align:left; }
+#historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; }
+#historyTable tbody tr:nth-child(even) { background:#fafbfa; }
+#historyTable .delete-cell { text-align:center; width:36px; }
+.delete-round { border:0; color:#9b1c1c; background:transparent; border-radius:6px; padding:5px; font-size:18px; cursor:pointer; line-height:1; }
+.delete-round:hover, .delete-round:focus-visible { background:#fbeaea; outline:2px solid #c66; }
 .chart-settings { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
 button:disabled { opacity:.5; cursor:not-allowed; }
 
@@ -269,7 +273,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     </div>
     <canvas id="historyChart" height="180" aria-label="Grafiek evolutie golfprestaties"></canvas>
   </div>
-  <div id="historyList"></div>
+  <div id="historyList" aria-live="polite"></div>
 </section>
 
 
@@ -324,18 +328,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <div class="settings">
     <label>
       HCP:
-      <select id="rabbitHcp" onchange="recalcRabbit()">
-        <option>45</option>
-        <option>44</option>
-        <option>43</option>
-        <option>42</option>
-        <option>41</option>
-        <option>40</option>
-        <option>39</option>
-        <option>38</option>
-        <option>37</option>
-        <option>36</option>
-      </select>
+      <input id="rabbitHcp" type="number" min="0" max="54" step="0.1" value="45" onchange="recalcRabbit()" style="width:85px">
     </label>
 
 <label>Tee:
@@ -582,11 +575,16 @@ function recalcRabbit(manual = false, preserveOverride = false) {
   const hcp = Number(document.getElementById("rabbitHcp").value);
   const tee = teeRatings[document.getElementById("tee").value];
 
-  // Indicatieve schatting; officiële PHCP kan afwijken.
+  // Voorlopige schatting voor Waregem Front 9, M Blauw,
+  // afgestemd op de vier door de gebruiker opgegeven referentiepunten.
+  // Dit is geen bevestigde officiële formule.
   const estimatedPHCP = Math.max(
     0,
-    Math.round((hcp * (tee.slope / 113) +
-    (tee.rating - 72)) / 2)
+    Math.round(
+      document.getElementById("tee").value === "blue"
+        ? (hcp * 0.51 - 2)
+        : (hcp * (tee.slope / 113) + (tee.rating - 72)) / 2
+    )
   );
 
   const override = document.getElementById("phcpOverride");
@@ -815,28 +813,56 @@ async function loadHistory() {
     return;
   }
   setMessage("historyMessage", data.length ? `${data.length} opgeslagen ronde(s).` : "Je hebt nog geen rondes opgeslagen.");
+  // Keep the chart in chronological order; the table below shows newest rounds first.
   drawHistoryChart(data);
+  if (!data.length) return;
+
+  const table = document.createElement("table");
+  table.id = "historyTable";
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["Datum", "Ronde", "Tee", "HCP", "PHCP", "Slagen", "Puts", "Netto pts", ""].forEach(label => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = label;
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  const teeNames = {red:"Rood", blue:"M Blauw", yellow:"Geel", white:"Wit"};
   [...data].reverse().forEach(round => {
-    const card = document.createElement("div");
-    card.className = "summary";
-    const teeNames = {red:"Rood",blue:"Blauw",yellow:"Geel",white:"Wit"};
-    const line1 = document.createElement("div");
-    line1.className = "history-line";
-    const heading = document.createElement("strong");
-    heading.textContent = `${round.played_at} · ${round.course_type}`;
+    const tr = document.createElement("tr");
+    const values = [
+      round.played_at || "—",
+      round.course_type || round.course || "—",
+      teeNames[round.tee] || round.tee || "—",
+      round.handicap_index == null ? "—" : Number(round.handicap_index).toLocaleString("nl-BE", {maximumFractionDigits: 1}),
+      round.playing_handicap ?? "—",
+      round.total_strokes ?? "—",
+      round.total_putts ?? "—",
+      round.net_points ?? "—"
+    ];
+    values.forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = String(value);
+      tr.appendChild(td);
+    });
+    const deleteCell = document.createElement("td");
+    deleteCell.className = "delete-cell";
     const del = document.createElement("button");
     del.className = "delete-round";
-    del.textContent = "Verwijder";
     del.type = "button";
+    del.textContent = "🗑️";
+    del.title = `Verwijder ronde van ${round.played_at}`;
+    del.setAttribute("aria-label", `Verwijder ronde van ${round.played_at}`);
     del.onclick = () => deleteRound(round.id, round.played_at);
-    line1.append(heading, del);
-    const line2 = document.createElement("div");
-    line2.className = "history-line";
-    const putts = round.total_putts == null ? "Puts: —" : `Puts: ${round.total_putts}`;
-    line2.textContent = `Tee ${teeNames[round.tee] || round.tee} · Slagen: ${round.total_strokes ?? "—"} · ${putts} · Netto: ${round.net_points ?? "—"} pts`;
-    card.append(line1, line2);
-    list.appendChild(card);
+    deleteCell.appendChild(del);
+    tr.appendChild(deleteCell);
+    tbody.appendChild(tr);
   });
+  table.appendChild(tbody);
+  list.appendChild(table);
 }
 async function deleteRound(roundId, playedAt) {
   if (!db) return;
