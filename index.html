@@ -18,7 +18,8 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   margin: 8px;
   font-size: 13px;
-  color: #222;
+  color: #203128;
+  background: #f3f6f1;
 }
 
 h1, h2 { margin: 4px 0 10px; }
@@ -27,44 +28,63 @@ h2 { font-size: 17px; }
 
 button, select, input { font: inherit; }
 button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #6b9b79; outline-offset: 2px; }
+button:not(.menu-button) { accent-color: var(--green); }
+input, select { border: 1px solid #cbd6cc; border-radius: 6px; background: #fff; color: #203128; }
+.summary { background: #fff; border-color: #d6e0d6; }
+th { background: #e8efe8; color: var(--green); }
+.back { border-color: #cbd6cc; color: var(--green); background: #fff; }
+.back:hover { background: #edf4ee; }
 
 .home-header {
   text-align: center;
-  padding: 26px 8px 18px;
+  padding: 12px 8px 10px;
 }
 
-.home-header .emoji { font-size: 38px; }
+.home-header .emoji { font-size: 30px; }
 .home-header h1 { color: var(--green); }
 .home-header p { color: #666; }
 
+/* Compact persoonlijk dashboard op de landingspagina */
+.landing-dashboard { max-width:520px; margin:0 auto 8px; }
+.landing-dashboard-title { margin:0 2px 5px; font-size:12px; color:#52665a; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.landing-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:10px; padding:8px 5px; text-align:center; min-width:0; }
+.landing-kpi strong { display:block; color:var(--green); font-size:19px; line-height:1.2; }
+.landing-kpi span { display:block; color:#66756b; font-size:10px; margin-top:3px; line-height:1.15; }
+#landingDashboardMessage { font-size:10px; color:#68776d; margin:5px 2px 0; text-align:center; }
 .menu {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
   max-width: 520px;
-  margin: 12px auto;
+  margin: 8px auto;
 }
 
 .menu-button {
-  border: 1px solid #cbd6cc;
+  border: 1px solid #d1ddd2;
   border-radius: 12px;
-  background: white;
-  padding: 18px 16px;
+  background: linear-gradient(145deg, #ffffff, #edf4ee);
+  box-shadow: 0 2px 7px rgba(23,61,42,.07);
+  padding: 12px 11px;
+  min-height: 104px;
   text-align: left;
-  color: #222;
+  color: #203128;
 }
 
 .menu-button strong {
   display: block;
   color: var(--green);
-  font-size: 17px;
-  margin-bottom: 5px;
+  font-size: 14px;
+  line-height: 1.25;
+  margin-bottom: 4px;
 }
 
 .menu-button span {
   display: block;
   color: #666;
-  line-height: 1.4;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .topbar {
@@ -206,7 +226,6 @@ th {
 button:disabled { opacity:.5; cursor:not-allowed; }
 
 @media (min-width: 520px) {
-  .menu { grid-template-columns: 1fr 1fr; }
   body {
     max-width: 760px;
     margin: 12px auto;
@@ -214,8 +233,14 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   }
 }
 
-@media (max-width: 380px) {
+@media (max-width: 430px) {
   body { margin: 4px; }
+  .home-header { padding: 8px 4px 6px; }
+  .home-header h1 { font-size: 20px; margin-bottom: 4px; }
+  .home-header p { margin: 3px 0; font-size: 12px; }
+  .menu-button { min-height: 92px; padding: 9px 8px; border-radius: 10px; }
+  .menu-button strong { font-size: 13px; }
+  .menu-button span { font-size: 10px; line-height: 1.25; }
   th, td { padding: 5px 1px; }
   input[type="number"] { width: 32px; }
 }
@@ -234,6 +259,16 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     <p>Kies je scorekaart</p>
   </div>
 
+  <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
+    <div class="landing-dashboard-title">Mijn golf in cijfers</div>
+    <div class="landing-kpis">
+      <div class="landing-kpi"><strong id="landingRoundsKpi">—</strong><span>Rondes</span></div>
+      <div class="landing-kpi"><strong id="landingPointsKpi">—</strong><span>Gem. nett punten</span></div>
+      <div class="landing-kpi"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></div>
+    </div>
+    <p id="landingDashboardMessage">Meld je aan om je persoonlijke cijfers te bekijken.</p>
+  </div>
+
   <div class="menu">
     <button class="menu-button" onclick="showPage('compact')">
       <strong>Waregem Compact</strong>
@@ -244,7 +279,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     </button>
 
     <button class="menu-button" onclick="showPage('rabbit')">
-      <strong>Waregem Rabbit — Front 9</strong>
+      <strong>Front 9</strong>
       <span>
         De eerste 9 holes van Golf Waregem, met tee-keuze,
         handicap en Stableford-punten.
@@ -362,7 +397,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 <section id="rabbitPage" class="hidden">
   <div class="topbar">
     <button class="back" onclick="showPage('home')">← Menu</button>
-    <h2>Waregem Rabbit — Front 9</h2>
+    <h2>Front 9</h2>
   </div>
 
   <div class="settings">
@@ -454,6 +489,7 @@ function showPage(page) {
       (page === "account" && id !== "accountPage") ||
       (page === "history" && id !== "historyPage"));
   });
+  if (page === "home") loadLandingDashboard();
   if (page === "compact") recalcCompact();
   if (page === "rabbit") {
     if (!editingRoundId) loadDefaultHcpForRound();
@@ -1044,7 +1080,49 @@ async function saveRabbitRound() {
     ? "Ronde succesvol gewijzigd in je online historiek."
     : "Ronde succesvol bewaard in je online historiek.");
   await loadHistory();
+  await loadLandingDashboard();
 }
+async function loadLandingDashboard() {
+  const roundsEl = document.getElementById("landingRoundsKpi");
+  const pointsEl = document.getElementById("landingPointsKpi");
+  const hcpEl = document.getElementById("landingHcpKpi");
+  const msg = document.getElementById("landingDashboardMessage");
+  if (!roundsEl || !pointsEl || !hcpEl || !msg) return;
+  if (!db) { msg.textContent = "Stel Supabase in om je cijfers te bekijken."; return; }
+  try {
+    const { data: { user }, error: userError } = await db.auth.getUser();
+    if (userError || !user) {
+      roundsEl.textContent = "—"; pointsEl.textContent = "—"; hcpEl.textContent = "—";
+      msg.textContent = "Meld je aan via Mijn account voor je persoonlijke cijfers.";
+      return;
+    }
+    const { data, error } = await db.from("golf_rounds")
+      .select("played_at, handicap_index, net_points")
+      .eq("user_id", user.id)
+      .order("played_at", { ascending: true });
+    if (error) throw error;
+    const rounds = data || [];
+    roundsEl.textContent = String(rounds.length);
+    const points = rounds.map(r => Number(r.net_points)).filter(Number.isFinite);
+    pointsEl.textContent = points.length
+      ? (points.reduce((sum, n) => sum + n, 0) / points.length).toLocaleString("nl-BE", { maximumFractionDigits: 1 })
+      : "—";
+    // Toon eerst de actuele HCP uit de accountinstelling; gebruik anders de HCP van de recentste ronde.
+    const accountHcp = Number(user.user_metadata && user.user_metadata.default_hcp);
+    const hasAccountHcp = user.user_metadata && user.user_metadata.default_hcp != null
+      && Number.isFinite(accountHcp) && accountHcp >= 0 && accountHcp <= 54;
+    const latestWithHcp = [...rounds].reverse().find(r => r.handicap_index != null && Number.isFinite(Number(r.handicap_index)));
+    const currentHcp = hasAccountHcp ? accountHcp : (latestWithHcp ? Number(latestWithHcp.handicap_index) : null);
+    hcpEl.textContent = currentHcp == null
+      ? "—"
+      : currentHcp.toLocaleString("nl-BE", { maximumFractionDigits: 1 });
+    msg.textContent = rounds.length ? "Gebaseerd op je opgeslagen rondes." : "Nog geen rondes opgeslagen. Je cijfers verschijnen na je eerste ronde.";
+  } catch (error) {
+    msg.textContent = "Je dashboard kon niet worden geladen.";
+    console.warn("Landing dashboard laden mislukt:", error);
+  }
+}
+
 async function loadHistory() {
   const list = document.getElementById("historyList");
   list.innerHTML = "";
@@ -1072,7 +1150,7 @@ async function loadHistory() {
   table.id = "historyTable";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  ["datum", "type", "tee", "hcp", "phcp", "score", "putts", "pts", "actie"].forEach(label => {
+  ["datum", "type", "tee", "hcp", "phcp", "slag", "putt", "pts", "actie"].forEach(label => {
     const th = document.createElement("th");
     th.scope = "col";
     th.textContent = label;
@@ -1241,6 +1319,7 @@ document.getElementById("rabbitDate").value = new Date().toISOString().slice(0,1
 document.getElementById("rabbitHcp").value = String(getDefaultHcp());
 recalcCompact();
 recalcRabbit();
+loadLandingDashboard();
 
 </script>
 </body>
