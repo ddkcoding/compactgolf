@@ -164,7 +164,9 @@ th {
 }
 
 .hidden { display: none !important; }
-#historyChart { width:100%; max-height:260px; }
+#historyChart { width:100%; max-height:260px; touch-action: pan-y; display:block; }
+.chart-wrap { position:relative; width:100%; }
+.chart-value-tip { position:absolute; display:none; pointer-events:none; transform:translate(-50%,-100%); background:#173d2a; color:#fff; border-radius:5px; padding:3px 7px; font-size:12px; line-height:1.2; white-space:nowrap; z-index:2; }
 #historyList { overflow-x:hidden; margin-top:10px; width:100%; }
 #historyTable { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; }
 #historyTable th, #historyTable td { padding:5px 3px; border-bottom:1px solid #ddd; text-align:left; overflow-wrap:anywhere; }
@@ -291,6 +293,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       <strong>Evolutie:</strong>
       <select id="historyMetric" onchange="loadHistory()" aria-label="Kies grafiekmetric">
         <option value="net_points">Nettopunten</option>
+        <option value="handicap_index">hcp-evolutie</option>
         <option value="total_strokes">Totaal slagen</option>
         <option value="total_putts">Totaal puts</option>
         <option value="gross_points">Brutopunten</option>
@@ -298,7 +301,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         <option value="avg_putts">Gemiddeld puts per hole</option>
       </select>
     </div>
-    <canvas id="historyChart" height="180" aria-label="Grafiek evolutie golfprestaties"></canvas>
+    <div class="chart-wrap" id="historyChartWrap">
+      <canvas id="historyChart" height="180" aria-label="Grafiek evolutie golfprestaties"></canvas>
+      <div class="chart-value-tip" id="historyChartTip" aria-live="polite"></div>
+    </div>
   </div>
   <div id="historyList" aria-live="polite"></div>
 </section>
@@ -357,6 +363,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       HCP:
       <input id="rabbitHcp" type="number" min="0" max="54" step="0.1" value="45" onchange="recalcRabbit()" style="width:85px">
     </label>
+    <button type="button" class="back" onclick="saveDefaultHcp()">hcp als standaard bewaren</button>
 
 <label>Tee:
   <select id="tee" onchange="recalcRabbit()">
@@ -756,6 +763,30 @@ async function signOut() {
   refreshAuthStatus();
 }
 let editingRoundId = null;
+const DEFAULT_HCP_KEY = "golfScoreDefaultHcp";
+
+function getDefaultHcp() {
+  try {
+    const stored = localStorage.getItem(DEFAULT_HCP_KEY);
+    const value = Number(stored);
+    return stored !== null && Number.isFinite(value) && value >= 0 && value <= 54 ? value : 45;
+  } catch (_) { return 45; }
+}
+
+function saveDefaultHcp() {
+  const input = document.getElementById("rabbitHcp");
+  const value = Number(input.value);
+  if (input.value.trim() === "" || !Number.isFinite(value) || value < 0 || value > 54) {
+    setMessage("saveMessage", "Vul een geldige standaard-hcp in (0–54).");
+    return;
+  }
+  try {
+    localStorage.setItem(DEFAULT_HCP_KEY, String(value));
+    setMessage("saveMessage", `Standaard-hcp bewaard: ${value.toLocaleString("nl-BE", {maximumFractionDigits: 1})}. Deze waarde wordt voortaan automatisch ingevuld op dit toestel.`);
+  } catch (_) {
+    setMessage("saveMessage", "De standaard-hcp kon niet in deze browser worden bewaard.");
+  }
+}
 
 function setRoundEditMode(isEditing) {
   const saveButton = document.getElementById("rabbitSaveButton");
@@ -767,7 +798,7 @@ function setRoundEditMode(isEditing) {
 function cancelEditRound() {
   editingRoundId = null;
   setRoundEditMode(false);
-  document.getElementById("rabbitHcp").value = "45";
+  document.getElementById("rabbitHcp").value = String(getDefaultHcp());
   document.getElementById("tee").value = "blue";
   document.getElementById("rabbitDate").value = "";
   rabbitCourse.forEach(h => {
@@ -1057,8 +1088,8 @@ function drawHistoryChart(rounds) {
   const metricSelect = document.getElementById("historyMetric");
   const metric = metricSelect ? metricSelect.value : "net_points";
   const labels = {
-    net_points: "Nettopunten", total_strokes: "Totaal slagen", total_putts: "Totaal puts",
-    gross_points: "Brutopunten", avg_strokes: "Gemiddeld slagen per hole", avg_putts: "Gemiddeld puts per hole"
+    net_points: "nettopunten", handicap_index: "hcp-evolutie", total_strokes: "totaal slagen", total_putts: "totaal puts",
+    gross_points: "brutopunten", avg_strokes: "gemiddeld slagen per hole", avg_putts: "gemiddeld puts per hole"
   };
   if (!rounds.length) {
     ctx.fillStyle = "#666"; ctx.font = "13px sans-serif";
@@ -1087,13 +1118,44 @@ function drawHistoryChart(rounds) {
     ctx.beginPath();ctx.moveTo(pad.left,y(v));ctx.lineTo(width-pad.right,y(v));ctx.stroke();
     ctx.fillText((Math.round(v*10)/10).toString(),3,y(v)+4);
   }
-  ctx.fillStyle="#173d2a";ctx.font="12px sans-serif";ctx.fillText(labels[metric] || "Evolutie",pad.left,14);
+  ctx.fillStyle="#173d2a";ctx.font="12px sans-serif";ctx.fillText(labels[metric] || "evolutie",pad.left,14);
   ctx.strokeStyle="#173d2a";ctx.lineWidth=2;ctx.beginPath();
   valid.forEach((p,j)=>{if(j===0)ctx.moveTo(x(p.i),y(p.v));else ctx.lineTo(x(p.i),y(p.v));});ctx.stroke();
   valid.forEach(p=>{ctx.fillStyle="#173d2a";ctx.beginPath();ctx.arc(x(p.i),y(p.v),3,0,Math.PI*2);ctx.fill();});
   ctx.fillStyle="#666";
   const indexes = rounds.length <= 6 ? rounds.map((_,i)=>i) : [0,Math.floor((rounds.length-1)/2),rounds.length-1];
   indexes.forEach(i=>ctx.fillText(String(rounds[i].played_at).slice(5),Math.max(0,x(i)-14),height-12));
+
+  // Toon uitsluitend de waarde bij hover (muis) of tik (telefoon).
+  const tip = document.getElementById("historyChartTip");
+  const wrap = document.getElementById("historyChartWrap");
+  const hideTip = () => { if (tip) tip.style.display = "none"; };
+  const showTipAt = event => {
+    if (!tip || !wrap) return;
+    const rect = canvas.getBoundingClientRect();
+    const px = event.clientX - rect.left;
+    const py = event.clientY - rect.top;
+    const scaleX = width / rect.width;
+    const scaleY = height / rect.height;
+    const cx = px * scaleX;
+    const cy = py * scaleY;
+    let nearest = null;
+    let nearestDist = Infinity;
+    valid.forEach(p => {
+      const dx = x(p.i) - cx;
+      const dy = y(p.v) - cy;
+      const dist = dx * dx + dy * dy;
+      if (dist < nearestDist) { nearestDist = dist; nearest = p; }
+    });
+    if (!nearest || nearestDist > (34 * scaleX) ** 2) { hideTip(); return; }
+    tip.textContent = Number(nearest.v.toFixed(1)).toString();
+    tip.style.left = `${Math.max(18, Math.min(rect.width - 18, x(nearest.i) / scaleX))}px`;
+    tip.style.top = `${Math.max(24, y(nearest.v) / scaleY)}px`;
+    tip.style.display = "block";
+  };
+  canvas.onpointermove = event => { if (event.pointerType === "mouse") showTipAt(event); };
+  canvas.onpointerdown = event => { if (event.pointerType !== "mouse") showTipAt(event); };
+  canvas.onpointerleave = event => { if (event.pointerType === "mouse") hideTip(); };
 }
 if (window.supabase) {
   // Toon accountstatus opnieuw wanneer de aanmeldstatus verandert.
@@ -1104,6 +1166,7 @@ if (window.supabase) {
 }
 
 document.getElementById("rabbitDate").value = new Date().toISOString().slice(0,10);
+document.getElementById("rabbitHcp").value = String(getDefaultHcp());
 recalcCompact();
 recalcRabbit();
 
