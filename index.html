@@ -173,6 +173,9 @@ th {
 #historyTable .delete-cell { text-align:center; width:36px; }
 .delete-round { border:0; color:#9b1c1c; background:transparent; border-radius:6px; padding:5px; font-size:18px; cursor:pointer; line-height:1; }
 .delete-round:hover, .delete-round:focus-visible { background:#fbeaea; outline:2px solid #c66; }
+.edit-round { border:0; color:#245c3a; background:transparent; border-radius:6px; padding:5px; font-size:18px; cursor:pointer; line-height:1; }
+.edit-round:hover, .edit-round:focus-visible { background:#eaf4ed; outline:2px solid #6a9b7a; }
+.history-actions { text-align:center !important; white-space:nowrap; }
 .chart-settings { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
 button:disabled { opacity:.5; cursor:not-allowed; }
 
@@ -384,7 +387,8 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 
   <div class="settings" style="margin-top:12px">
     <label>Datum <input type="date" id="rabbitDate"></label>
-    <button class="menu-button" style="padding:10px 14px" onclick="saveRabbitRound()">Ronde bewaren</button>
+    <button id="rabbitSaveButton" class="menu-button" style="padding:10px 14px" onclick="saveRabbitRound()">Ronde bewaren</button>
+    <button id="cancelEditButton" class="menu-button hidden" style="padding:10px 14px;background:#666" onclick="cancelEditRound()">Annuleren</button>
   </div>
   <p id="saveMessage" role="status"></p>
 
@@ -727,6 +731,74 @@ async function signOut() {
   setMessage("authMessage", error ? error.message : "Je bent afgemeld.");
   refreshAuthStatus();
 }
+let editingRoundId = null;
+
+function setRoundEditMode(isEditing) {
+  const saveButton = document.getElementById("rabbitSaveButton");
+  const cancelButton = document.getElementById("cancelEditButton");
+  if (saveButton) saveButton.textContent = isEditing ? "Wijzigingen opslaan" : "Ronde bewaren";
+  if (cancelButton) cancelButton.classList.toggle("hidden", !isEditing);
+}
+
+function cancelEditRound() {
+  editingRoundId = null;
+  setRoundEditMode(false);
+  document.getElementById("rabbitHcp").value = "45";
+  document.getElementById("tee").value = "blue";
+  document.getElementById("rabbitDate").value = "";
+  rabbitCourse.forEach(h => {
+    document.getElementById(`rs${h.hole}`).value = "";
+    document.getElementById(`rp${h.hole}`).value = "";
+  });
+  document.getElementById("phcpOverride").value = "21";
+  recalcRabbit(false, true);
+  setMessage("saveMessage", "Wijzigen geannuleerd. Je kunt een nieuwe ronde invoeren.");
+}
+
+async function editRound(roundId) {
+  if (!explainSupabaseSetup()) return;
+  const { data: { user }, error: userError } = await db.auth.getUser();
+  if (userError || !user) {
+    alert("Meld je opnieuw aan om een ronde te wijzigen.");
+    return;
+  }
+
+  const { data: round, error: roundError } = await db.from("golf_rounds")
+    .select("id, played_at, tee, handicap_index, playing_handicap")
+    .eq("id", roundId).eq("user_id", user.id).single();
+  if (roundError || !round) {
+    alert("De ronde kon niet worden geladen: " + (roundError?.message || "ronde niet gevonden"));
+    return;
+  }
+
+  const { data: holes, error: holesError } = await db.from("golf_hole_scores")
+    .select("hole_number, strokes, putts")
+    .eq("round_id", roundId).order("hole_number", { ascending: true });
+  if (holesError) {
+    alert("De holes konden niet worden geladen: " + holesError.message);
+    return;
+  }
+  if (!holes || holes.length !== 9) {
+    alert("Deze ronde bevat niet precies 9 holescores en kan daarom niet veilig worden gewijzigd.");
+    return;
+  }
+
+  editingRoundId = roundId;
+  document.getElementById("rabbitHcp").value = round.handicap_index ?? 45;
+  document.getElementById("tee").value = round.tee || "blue";
+  document.getElementById("rabbitDate").value = round.played_at || "";
+  document.getElementById("phcpOverride").value = round.playing_handicap ?? 0;
+  rabbitCourse.forEach(h => {
+    const saved = holes.find(item => Number(item.hole_number) === h.hole);
+    document.getElementById(`rs${h.hole}`).value = saved?.strokes ?? "";
+    document.getElementById(`rp${h.hole}`).value = saved?.putts ?? "";
+  });
+  setRoundEditMode(true);
+  recalcRabbit(false, true);
+  setMessage("saveMessage", "Je wijzigt een bestaande ronde. Pas de gegevens aan en kies ‘Wijzigingen opslaan’.");
+  showPage("rabbit");
+}
+
 async function saveRabbitRound() {
   if (!explainSupabaseSetup()) return;
   const { data: { user }, error: userError } = await db.auth.getUser();
@@ -749,50 +821,102 @@ async function saveRabbitRound() {
     setMessage("saveMessage", "Vul ook het aantal puts (0–10) in voor alle 9 holes.");
     return;
   }
+  const hcp = Number(document.getElementById("rabbitHcp").value);
+  if (!Number.isFinite(hcp) || hcp < 0 || hcp > 54) {
+    setMessage("saveMessage", "Vul een geldige HCP in (0–54).");
+    return;
+  }
   const tee = document.getElementById("tee").value;
   const phcp = Number(document.getElementById("phcpOverride").value);
+  if (!Number.isInteger(phcp) || phcp < 0 || phcp > 54) {
+    setMessage("saveMessage", "Vul een geldige PHCP in (0–54).");
+    return;
+  }
   const totalStrokes = scores.reduce((sum, s) => sum + s.strokes, 0);
   const totalPutts = scores.reduce((sum, s) => sum + s.putts, 0);
   const grossPoints = scores.reduce((sum, s) => sum + Math.max(0, 2 + s.par - s.strokes), 0);
   const netPoints = Number(document.getElementById("netTotal").textContent);
   const playedAt = document.getElementById("rabbitDate").value || new Date().toISOString().slice(0,10);
-  setMessage("saveMessage", "Ronde wordt bewaard…");
-  const { data: round, error: roundError } = await db.from("golf_rounds").insert({
-    user_id: user.id,
+  const roundValues = {
     played_at: playedAt,
     course: "Waregem Golf",
     course_type: "Rabbit Front 9",
     tee,
-    handicap_index: Number(document.getElementById("rabbitHcp").value),
+    handicap_index: hcp,
     playing_handicap: phcp,
     total_strokes: totalStrokes,
     total_putts: totalPutts,
     gross_points: grossPoints,
     net_points: netPoints
-  }).select("id").single();
-  if (roundError) {
-    setMessage("saveMessage", "Bewaren mislukt: " + roundError.message);
-    return;
+  };
+  setMessage("saveMessage", editingRoundId ? "Wijzigingen worden opgeslagen…" : "Ronde wordt bewaard…");
+
+  let roundId = editingRoundId;
+  if (editingRoundId) {
+    const { data: updatedRound, error: updateError } = await db.from("golf_rounds")
+      .update(roundValues).eq("id", editingRoundId).eq("user_id", user.id).select("id").single();
+    if (updateError || !updatedRound) {
+      setMessage("saveMessage", "Wijzigen mislukt: " + (updateError?.message || "ronde niet gevonden"));
+      return;
+    }
+    roundId = updatedRound.id;
+  } else {
+    const { data: round, error: roundError } = await db.from("golf_rounds")
+      .insert({ user_id: user.id, ...roundValues }).select("id").single();
+    if (roundError) {
+      setMessage("saveMessage", "Bewaren mislukt: " + roundError.message);
+      return;
+    }
+    roundId = round.id;
   }
-  const holeRows = scores.map(s => ({
-    round_id: round.id,
-    hole_number: s.hole,
-    par: s.par,
-    stroke_index: s.si,
-    extra_strokes: Number(document.getElementById(`re${s.hole}`).textContent),
-    strokes: s.strokes,
-    putts: s.putts,
-    gross_points: Math.max(0, 2 + s.par - s.strokes),
-    net_points: Number(document.getElementById(`rn${s.hole}`).textContent)
-  }));
-  const { error: holesError } = await db.from("golf_hole_scores").insert(holeRows);
-  if (holesError) {
-    await db.from("golf_rounds").delete().eq("id", round.id);
-    setMessage("saveMessage", "De holes konden niet worden bewaard: " + holesError.message);
-    return;
+
+  for (const score of scores) {
+    const holeValues = {
+      par: score.par,
+      stroke_index: score.si,
+      extra_strokes: Number(document.getElementById(`re${score.hole}`).textContent),
+      strokes: score.strokes,
+      putts: score.putts,
+      gross_points: Math.max(0, 2 + score.par - score.strokes),
+      net_points: Number(document.getElementById(`rn${score.hole}`).textContent)
+    };
+    if (editingRoundId) {
+      const { data: updatedHole, error: holeUpdateError } = await db.from("golf_hole_scores")
+        .update(holeValues).eq("round_id", roundId).eq("hole_number", score.hole).select("hole_number");
+      if (holeUpdateError) {
+        setMessage("saveMessage", "De ronde is bijgewerkt, maar hole " + score.hole + " kon niet worden bijgewerkt: " + holeUpdateError.message);
+        return;
+      }
+      if (!updatedHole || updatedHole.length === 0) {
+        const { error: holeInsertError } = await db.from("golf_hole_scores")
+          .insert({ round_id: roundId, hole_number: score.hole, ...holeValues });
+        if (holeInsertError) {
+          setMessage("saveMessage", "De ronde is bijgewerkt, maar hole " + score.hole + " kon niet worden opgeslagen: " + holeInsertError.message);
+          return;
+        }
+      }
+    } else {
+      // Nieuwe rondes bewaren we als één set van negen holescores.
+      score._row = { round_id: roundId, hole_number: score.hole, ...holeValues };
+    }
   }
-  setMessage("saveMessage", "Ronde succesvol bewaard in je online historiek.");
-  loadHistory();
+  if (!editingRoundId) {
+    const holeRows = scores.map(score => score._row);
+    const { error: holesError } = await db.from("golf_hole_scores").insert(holeRows);
+    if (holesError) {
+      await db.from("golf_rounds").delete().eq("id", roundId).eq("user_id", user.id);
+      setMessage("saveMessage", "De holes konden niet worden bewaard: " + holesError.message);
+      return;
+    }
+  }
+
+  const wasEditing = Boolean(editingRoundId);
+  editingRoundId = null;
+  setRoundEditMode(false);
+  setMessage("saveMessage", wasEditing
+    ? "Ronde succesvol gewijzigd in je online historiek."
+    : "Ronde succesvol bewaard in je online historiek.");
+  await loadHistory();
 }
 async function loadHistory() {
   const list = document.getElementById("historyList");
@@ -849,7 +973,15 @@ async function loadHistory() {
       tr.appendChild(td);
     });
     const deleteCell = document.createElement("td");
-    deleteCell.className = "delete-cell";
+    deleteCell.className = "delete-cell history-actions";
+    const edit = document.createElement("button");
+    edit.className = "edit-round";
+    edit.type = "button";
+    edit.textContent = "✏️";
+    edit.title = `Wijzig ronde van ${round.played_at}`;
+    edit.setAttribute("aria-label", `Wijzig ronde van ${round.played_at}`);
+    edit.onclick = () => editRound(round.id);
+    deleteCell.appendChild(edit);
     const del = document.createElement("button");
     del.className = "delete-round";
     del.type = "button";
