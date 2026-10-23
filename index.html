@@ -168,7 +168,8 @@ th {
 #historyList { overflow-x:hidden; margin-top:10px; width:100%; }
 #historyTable { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; }
 #historyTable th, #historyTable td { padding:5px 3px; border-bottom:1px solid #ddd; text-align:left; overflow-wrap:anywhere; }
-#historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; }
+#historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; font-size:9px; text-transform:lowercase; }
+#historyTable td { text-transform:lowercase; }
 #historyTable tbody tr:nth-child(even) { background:#fafbfa; }
 #historyTable th:nth-child(1), #historyTable td:nth-child(1) { width:17%; white-space:nowrap; }
 #historyTable th:nth-child(2), #historyTable td:nth-child(2) { width:13%; }
@@ -968,7 +969,7 @@ async function loadHistory() {
   table.id = "historyTable";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  ["Datum", "Type", "Tee", "HCP", "PHCP", "Sl.", "Putts", "Pts", "Actie"].forEach(label => {
+  ["datum", "type", "tee", "hcp", "phcp", "score", "putts", "pts", "actie"].forEach(label => {
     const th = document.createElement("th");
     th.scope = "col";
     th.textContent = label;
@@ -977,7 +978,7 @@ async function loadHistory() {
   thead.appendChild(headerRow);
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
-  const teeNames = {red:"Rood", blue:"Blauw", yellow:"Geel", white:"Wit"};
+  const teeNames = {red:"rood", blue:"blauw", yellow:"geel", white:"wit"};
   const formatHistoryDate = value => {
     if (!value) return "—";
     const parts = String(value).slice(0, 10).split("-");
@@ -985,7 +986,7 @@ async function loadHistory() {
   };
   [...data].reverse().forEach(round => {
     const tr = document.createElement("tr");
-    const roundType = (round.course_type || round.course || "—").replace(/^Rabbit Front 9$/i, "Front 9");
+    const roundType = (round.course_type || round.course || "—").replace(/^Rabbit Front 9$/i, "front 9");
     const values = [
       formatHistoryDate(round.played_at),
       roundType,
