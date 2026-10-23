@@ -1,12 +1,13 @@
 
 <!DOCTYPE html>
 <html lang="nl">
-<link rel="Minimalistisch golfvlag-appicoon" href="Minimalistisch golfvlag-appicoon.png">
-<link rel="icon" type="image/png" href="Minimalistisch golfvlag-appicoon.png">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Waregem Golf Scores</title>
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="180x180" href="apple-touch-icon.png">
 
 <style>
 :root {
@@ -38,14 +39,14 @@ th { background: #e8efe8; color: var(--green); }
 .back { border-color: #cbd6cc; color: var(--green); background: #fff; }
 .back:hover { background: #edf4ee; }
 
-.home-header {
+.home-er {
   text-align: center;
   padding: 12px 8px 10px;
 }
 
-.home-header .emoji { font-size: 30px; }
-.home-header h1 { color: var(--green); }
-.home-header p { color: #666; }
+.home-er .home-icon { width:64px; height:64px; object-fit:contain; display:block; margin:0 auto 6px; border-radius:14px; }
+.home-er h1 { color: var(--green); }
+.home-er p { color: #666; }
 
 /* Persoonlijk golfdashboard en uniforme groene kleurentemplate */
 .landing-dashboard { max-width:520px; margin:0 auto 12px; }
@@ -244,9 +245,9 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 
 @media (max-width: 430px) {
   body { margin: 4px; }
-  .home-header { padding: 8px 4px 6px; }
-  .home-header h1 { font-size: 20px; margin-bottom: 4px; }
-  .home-header p { margin: 3px 0; font-size: 12px; }
+  .home-er { padding: 8px 4px 6px; }
+  .home-er h1 { font-size: 20px; margin-bottom: 4px; }
+  .home-er p { margin: 3px 0; font-size: 12px; }
   .landing-dashboard { margin-bottom: 10px; }
   .landing-kpi { padding: 9px 10px; }
   .landing-kpi strong { font-size: 21px; }
@@ -265,10 +266,9 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 <!-- LANDINGSPAGINA -->
 
 <section id="landing">
-  <div class="home-header">
-    <div class="emoji">🏌️</div>
+  <div class="home-er">
+    <img class="home-icon" src="apple-touch-icon.png" alt="Waregem Golf Score-icoon">
     <h1>Waregem Golf Score</h1>
-    <p>Kies je scorekaart</p>
   </div>
 
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
@@ -283,7 +283,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   </div>
 
   <div class="menu">
-    <button class="menu-button" onclick="showPage('')">
+    <button class="menu-button" onclick="showPage('compact')">
       <strong>Waregem </strong>
       <span>
         De originele calculator met 2 rondes van 6 holes
@@ -367,7 +367,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 
 <!-- BESTAANDE  GOLF -->
 
-<section id="Page" class="hidden">
+<section id="compactPage" class="hidden">
   <div class="topbar">
     <button class="back" onclick="showPage('home')">← Menu</button>
     <h2>🏌️  Golf</h2>
