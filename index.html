@@ -278,6 +278,13 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       <button class="back" onclick="signOut()">Afmelden</button>
     </div>
     <p class="note">Gebruik je eigen account. Je rondes zijn alleen zichtbaar voor jouw aangemelde account.</p>
+    <div class="summary" style="margin-top:14px">
+      <h3 style="margin-top:0">mijn actuele hcp</h3>
+      <p class="note">Bewaar je actuele handicap apart, ook als je geen ronde invoert. Bij een nieuwe scorekaart wordt deze waarde automatisch ingevuld.</p>
+      <label>hcp <input id="accountDefaultHcp" type="number" min="0" max="54" step="0.1" style="width:90px" inputmode="decimal"></label>
+      <button type="button" class="back" onclick="saveAccountDefaultHcp()">hcp bewaren</button>
+      <p id="hcpSettingsMessage" role="status"></p>
+    </div>
     <p id="authMessage" role="status"></p>
   </div>
 </section>
@@ -448,9 +455,12 @@ function showPage(page) {
       (page === "history" && id !== "historyPage"));
   });
   if (page === "compact") recalcCompact();
-  if (page === "rabbit") recalcRabbit(false, true);
+  if (page === "rabbit") {
+    if (!editingRoundId) loadDefaultHcpForRound();
+    recalcRabbit(false, true);
+  }
   if (page === "history") loadHistory();
-  if (page === "account") refreshAuthStatus();
+  if (page === "account") { refreshAuthStatus(); loadAccountDefaultHcp(); }
   window.scrollTo(0, 0);
 }
 
@@ -755,6 +765,7 @@ async function signIn() {
   }
   setMessage("authMessage", "Je bent aangemeld.");
   setMessage("authStatus", `Aangemeld als ${data.user.email}`);
+  await loadAccountDefaultHcp();
 }
 async function signOut() {
   if (!db) return;
@@ -773,7 +784,21 @@ function getDefaultHcp() {
   } catch (_) { return 45; }
 }
 
-function saveDefaultHcp() {
+async function persistDefaultHcp(value) {
+  // Lokale reservekopie voor gebruik zonder account of bij tijdelijke verbindingsproblemen.
+  try { localStorage.setItem(DEFAULT_HCP_KEY, String(value)); } catch (_) {}
+  if (db) {
+    const { data: { user }, error: userError } = await db.auth.getUser();
+    if (!userError && user) {
+      const { error } = await db.auth.updateUser({ data: { default_hcp: value } });
+      if (error) throw error;
+      return "Je actuele hcp is online bij je account bewaard en wordt op je andere toestellen gebruikt.";
+    }
+  }
+  return "Je actuele hcp is op dit toestel bewaard. Meld je aan via Mijn account om ze tussen toestellen te synchroniseren.";
+}
+
+async function saveDefaultHcp() {
   const input = document.getElementById("rabbitHcp");
   const value = Number(input.value);
   if (input.value.trim() === "" || !Number.isFinite(value) || value < 0 || value > 54) {
@@ -781,10 +806,57 @@ function saveDefaultHcp() {
     return;
   }
   try {
-    localStorage.setItem(DEFAULT_HCP_KEY, String(value));
-    setMessage("saveMessage", `Standaard-hcp bewaard: ${value.toLocaleString("nl-BE", {maximumFractionDigits: 1})}. Deze waarde wordt voortaan automatisch ingevuld op dit toestel.`);
-  } catch (_) {
-    setMessage("saveMessage", "De standaard-hcp kon niet in deze browser worden bewaard.");
+    const message = await persistDefaultHcp(value);
+    const settingsInput = document.getElementById("accountDefaultHcp");
+    if (settingsInput) settingsInput.value = String(value);
+    setMessage("saveMessage", `Standaard-hcp bewaard: ${value.toLocaleString("nl-BE", {maximumFractionDigits: 1})}. ${message}`);
+  } catch (error) {
+    setMessage("saveMessage", "De hcp kon niet online worden bewaard: " + error.message);
+  }
+}
+
+async function saveAccountDefaultHcp() {
+  const input = document.getElementById("accountDefaultHcp");
+  const value = Number(input.value);
+  if (input.value.trim() === "" || !Number.isFinite(value) || value < 0 || value > 54) {
+    setMessage("hcpSettingsMessage", "Vul een geldige hcp in (0–54).");
+    return;
+  }
+  try {
+    const message = await persistDefaultHcp(value);
+    document.getElementById("rabbitHcp").value = String(value);
+    setMessage("hcpSettingsMessage", `Actuele hcp ${value.toLocaleString("nl-BE", {maximumFractionDigits: 1})} bewaard. ${message}`);
+  } catch (error) {
+    setMessage("hcpSettingsMessage", "Online bewaren mislukt: " + error.message);
+  }
+}
+
+async function loadAccountDefaultHcp() {
+  const input = document.getElementById("accountDefaultHcp");
+  if (!input) return;
+  let value = getDefaultHcp();
+  if (db) {
+    const { data: { user }, error } = await db.auth.getUser();
+    if (!error && user && user.user_metadata && Number.isFinite(Number(user.user_metadata.default_hcp)) && Number(user.user_metadata.default_hcp) >= 0 && Number(user.user_metadata.default_hcp) <= 54) {
+      value = Number(user.user_metadata.default_hcp);
+      try { localStorage.setItem(DEFAULT_HCP_KEY, String(value)); } catch (_) {}
+    }
+  }
+  input.value = String(value);
+}
+
+async function loadDefaultHcpForRound() {
+  let value = getDefaultHcp();
+  if (db) {
+    const { data: { user }, error } = await db.auth.getUser();
+    if (!error && user && user.user_metadata && Number.isFinite(Number(user.user_metadata.default_hcp)) && Number(user.user_metadata.default_hcp) >= 0 && Number(user.user_metadata.default_hcp) <= 54) {
+      value = Number(user.user_metadata.default_hcp);
+      try { localStorage.setItem(DEFAULT_HCP_KEY, String(value)); } catch (_) {}
+    }
+  }
+  if (!editingRoundId) {
+    document.getElementById("rabbitHcp").value = String(value);
+    recalcRabbit(false, true);
   }
 }
 
