@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Golf Scorec</title>
+<title>Waregem Golf Scores</title>
 
 <style>
 :root {
@@ -45,20 +45,20 @@ th { background: #e8efe8; color: var(--green); }
 .home-header h1 { color: var(--green); }
 .home-header p { color: #666; }
 
-/* Compact persoonlijk dashboard op de landingspagina */
-.landing-dashboard { max-width:520px; margin:0 auto 8px; }
-.landing-dashboard-title { margin:0 2px 5px; font-size:12px; color:#52665a; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
-.landing-kpis { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:10px; padding:8px 5px; text-align:center; min-width:0; }
-.landing-kpi strong { display:block; color:var(--green); font-size:19px; line-height:1.2; }
-.landing-kpi span { display:block; color:#66756b; font-size:10px; margin-top:3px; line-height:1.15; }
-#landingDashboardMessage { font-size:10px; color:#68776d; margin:5px 2px 0; text-align:center; }
+/* Persoonlijk golfdashboard en uniforme groene kleurentemplate */
+.landing-dashboard { max-width:520px; margin:0 auto 12px; }
+.landing-dashboard-title { margin:0 2px 7px; font-size:12px; color:#52665a; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+.landing-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:12px; padding:11px 10px; text-align:left; min-width:0; box-shadow:0 2px 6px rgba(23,61,42,.045); }
+.landing-kpi strong { display:block; color:var(--green); font-size:23px; line-height:1.2; }
+.landing-kpi span { display:block; color:#52665a; font-size:11px; margin-top:4px; line-height:1.2; }
+#landingDashboardMessage { font-size:10px; color:#68776d; margin:6px 2px 0; text-align:center; }
 .menu {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0,1fr);
   gap: 8px;
   max-width: 520px;
-  margin: 8px auto;
+  margin: 10px auto;
 }
 
 .menu-button {
@@ -66,10 +66,13 @@ th { background: #e8efe8; color: var(--green); }
   border-radius: 12px;
   background: linear-gradient(145deg, #ffffff, #edf4ee);
   box-shadow: 0 2px 7px rgba(23,61,42,.07);
-  padding: 12px 11px;
-  min-height: 104px;
+  padding: 12px 14px;
+  min-height: 68px;
   text-align: left;
   color: #203128;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .menu-button strong {
@@ -132,29 +135,33 @@ table {
 }
 
 th, td {
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid #d6e0d6;
   padding: 5px 2px;
   text-align: center;
 }
 
 th {
   font-size: 11px;
-  background: #f0f0f0;
+  background: #e8efe8;
+  color: var(--green);
 }
 
-.round1 td { background: #f9f9f9; }
-.round2 td { background: #eef5ff; }
+tbody tr:nth-child(even) td { background: #f5f8f4; }
+.round1 td { background: #f7faf6; }
+.round2 td { background: #edf4ee; }
 
 .round-separator td {
-  background: #ddd;
+  background: #dce8dc;
+  color: var(--green);
   font-weight: bold;
   text-align: left;
-  border-top: 3px solid #999;
+  border-top: 3px solid #9bb59d;
 }
 
 .round-total td, .total-row td {
   font-weight: bold;
-  background: #eee;
+  background: #e8efe8;
+  color: var(--green);
 }
 
 .total {
@@ -238,7 +245,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   .home-header { padding: 8px 4px 6px; }
   .home-header h1 { font-size: 20px; margin-bottom: 4px; }
   .home-header p { margin: 3px 0; font-size: 12px; }
-  .menu-button { min-height: 92px; padding: 9px 8px; border-radius: 10px; }
+  .landing-dashboard { margin-bottom: 10px; }
+  .landing-kpi { padding: 9px 10px; }
+  .landing-kpi strong { font-size: 21px; }
+  .menu-button { min-height: 62px; padding: 9px 12px; border-radius: 10px; }
   .menu-button strong { font-size: 13px; }
   .menu-button span { font-size: 10px; line-height: 1.25; }
   th, td { padding: 5px 1px; }
@@ -262,9 +272,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
     <div class="landing-dashboard-title">Mijn golf in cijfers</div>
     <div class="landing-kpis">
-      <div class="landing-kpi"><strong id="landingRoundsKpi">—</strong><span>Rondes</span></div>
-      <div class="landing-kpi"><strong id="landingPointsKpi">—</strong><span>Gem. nett punten</span></div>
       <div class="landing-kpi"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></div>
+      <div class="landing-kpi"><strong id="landingRoundsKpi">—</strong><span>Aantal rondes</span></div>
+      <div class="landing-kpi"><strong id="landingPointsKpi">—</strong><span>Gem. punten</span></div>
+      <div class="landing-kpi"><strong id="landingStrokesKpi">—</strong><span>Gem. slagen · Front 9</span></div>
     </div>
     <p id="landingDashboardMessage">Meld je aan om je persoonlijke cijfers te bekijken.</p>
   </div>
@@ -1086,18 +1097,19 @@ async function loadLandingDashboard() {
   const roundsEl = document.getElementById("landingRoundsKpi");
   const pointsEl = document.getElementById("landingPointsKpi");
   const hcpEl = document.getElementById("landingHcpKpi");
+  const strokesEl = document.getElementById("landingStrokesKpi");
   const msg = document.getElementById("landingDashboardMessage");
-  if (!roundsEl || !pointsEl || !hcpEl || !msg) return;
+  if (!roundsEl || !pointsEl || !hcpEl || !strokesEl || !msg) return;
   if (!db) { msg.textContent = "Stel Supabase in om je cijfers te bekijken."; return; }
   try {
     const { data: { user }, error: userError } = await db.auth.getUser();
     if (userError || !user) {
-      roundsEl.textContent = "—"; pointsEl.textContent = "—"; hcpEl.textContent = "—";
+      roundsEl.textContent = "—"; pointsEl.textContent = "—"; hcpEl.textContent = "—"; strokesEl.textContent = "—";
       msg.textContent = "Meld je aan via Mijn account voor je persoonlijke cijfers.";
       return;
     }
     const { data, error } = await db.from("golf_rounds")
-      .select("played_at, handicap_index, net_points")
+      .select("played_at, handicap_index, net_points, total_strokes, course_type")
       .eq("user_id", user.id)
       .order("played_at", { ascending: true });
     if (error) throw error;
@@ -1106,6 +1118,12 @@ async function loadLandingDashboard() {
     const points = rounds.map(r => Number(r.net_points)).filter(Number.isFinite);
     pointsEl.textContent = points.length
       ? (points.reduce((sum, n) => sum + n, 0) / points.length).toLocaleString("nl-BE", { maximumFractionDigits: 1 })
+      : "—";
+    const front9Rounds = rounds.filter(r => r.total_strokes != null && Number.isFinite(Number(r.total_strokes))
+      && (!r.course_type || String(r.course_type).toLowerCase().includes("front 9")));
+    strokesEl.textContent = front9Rounds.length
+      ? (front9Rounds.reduce((sum, r) => sum + Number(r.total_strokes), 0) / front9Rounds.length)
+          .toLocaleString("nl-BE", { maximumFractionDigits: 1 })
       : "—";
     // Toon eerst de actuele HCP uit de accountinstelling; gebruik anders de HCP van de recentste ronde.
     const accountHcp = Number(user.user_metadata && user.user_metadata.default_hcp);
@@ -1118,6 +1136,7 @@ async function loadLandingDashboard() {
       : currentHcp.toLocaleString("nl-BE", { maximumFractionDigits: 1 });
     msg.textContent = rounds.length ? "Gebaseerd op je opgeslagen rondes." : "Nog geen rondes opgeslagen. Je cijfers verschijnen na je eerste ronde.";
   } catch (error) {
+    strokesEl.textContent = "—";
     msg.textContent = "Je dashboard kon niet worden geladen.";
     console.warn("Landing dashboard laden mislukt:", error);
   }
