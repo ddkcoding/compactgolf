@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Golf Score App</title>
+<title>Golf Scorec</title>
 
 <style>
 :root {
@@ -389,10 +389,9 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <p id="saveMessage" role="status"></p>
 
   <div class="note">
-    De tee-ratings hieronder zijn voorlopige waarden.
-    Controleer ze met de actuele officiële baaninformatie.
-    De berekende PHCP is indicatief; je kunt de PHCP
-    aanpassen aan de waarde op je officiële scorekaart.
+    De tee-ratings zijn overgenomen uit de Course Handicap Table van Waregem Golf
+    voor holes 1–9 (pagina’s 6–9, afgedrukt op 12/11/2020). De PHCP wordt berekend
+    volgens deze tabel. Je kunt de PHCP nog handmatig aanpassen als dat nodig is.
   </div>
 </section>
 
@@ -541,14 +540,19 @@ const rabbitCourse = [
 ];
 
 /*
-  Voorlopige waarden voor de 18-holes ratings.
-  Verifieer deze bij Golf Waregem voor officieel gebruik.
+  Waregem Golf — officiële Course Handicap-tabellen voor holes 1–9 (heren).
+  Bron: Course Handicap Table Waregem Golf, pagina's 6–9 (afdrukdatum 12/11/2020).
+  Wit: CR 36,5 / Slope 127; Geel: CR 35,7 / Slope 124;
+  Blauw: CR 34,2 / Slope 118; Rood: CR 33,5 / Slope 115.
+  Par Front 9 = 37. De WHS-tabellen zijn equivalent aan de berekening
+  (Handicap Index / 2) × (Slope / 113) + (Course Rating − par), afgerond.
+  Pink (pagina 10) wordt bewust niet aangeboden.
 */
 const teeRatings = {
-  red:    {name:"Rood", rating:70.3, slope:117},
-  blue:   {name:"Blauw heren", rating:71.9, slope:122},
-  yellow: {name:"Geel heren", rating:69.3, slope:121},
-  white:  {name:"Wit heren", rating:71.6, slope:127}
+  red:    {name:"Rood heren", rating:33.5, slope:115},
+  blue:   {name:"Blauw heren", rating:34.2, slope:118},
+  yellow: {name:"Geel heren", rating:35.7, slope:124},
+  white:  {name:"Wit heren", rating:36.5, slope:127}
 };
 
 const rabbitTbody = document.getElementById("rabbitRows");
@@ -575,22 +579,18 @@ function recalcRabbit(manual = false, preserveOverride = false) {
   const hcp = Number(document.getElementById("rabbitHcp").value);
   const tee = teeRatings[document.getElementById("tee").value];
 
-  // Voorlopige schatting voor Waregem Front 9, M Blauw,
-  // afgestemd op de vier door de gebruiker opgegeven referentiepunten.
-  // Dit is geen bevestigde officiële formule.
-  const estimatedPHCP = Math.max(
+  // Course Handicap voor 9 holes volgens de officiële Waregem-tabellen
+  // (pagina 6 wit, 7 geel, 8 blauw, 9 rood). Voor holes 1–9 is par 37.
+  // De tabelwaarden volgen deze WHS-berekening, afgerond op een geheel getal.
+  const tablePHCP = Math.max(
     0,
-    Math.round(
-      document.getElementById("tee").value === "blue"
-        ? (hcp * 0.51 - 2)
-        : (hcp * (tee.slope / 113) + (tee.rating - 72)) / 2
-    )
+    Math.round((hcp / 2) * (tee.slope / 113) + (tee.rating - 37))
   );
 
   const override = document.getElementById("phcpOverride");
 
   if (!manual && !preserveOverride) {
-    override.value = estimatedPHCP;
+    override.value = tablePHCP;
   }
 
   const phcp = Math.max(
