@@ -68,9 +68,14 @@ th { background: #e8efe8; color: var(--green); }
 .landing-dashboard { max-width:520px; margin:0 auto 12px; }
 .landing-dashboard-title { margin:0 2px 7px; font-size:12px; color:#52665a; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 .landing-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:12px; padding:11px 10px; text-align:left; min-width:0; box-shadow:0 2px 6px rgba(23,61,42,.045); }
+.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:12px; padding:11px 10px; text-align:left; min-width:0; box-shadow:0 2px 6px rgba(23,61,42,.045); display:grid; grid-template-columns:minmax(0,1fr) 76px; align-items:center; gap:5px; min-height:82px; }
+.landing-kpi-copy { min-width:0; }
 .landing-kpi strong { display:block; color:var(--green); font-size:23px; line-height:1.2; }
 .landing-kpi span { display:block; color:#52665a; font-size:11px; margin-top:4px; line-height:1.2; }
+.landing-sparkline { width:76px; height:36px; display:block; overflow:visible; }
+.landing-sparkline polyline { fill:none; stroke:#18734b; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.landing-sparkline .spark-dot { fill:#18734b; }
+.landing-sparkline .spark-empty { fill:#b9d2c2; }
 #landingDashboardMessage { font-size:10px; color:#68776d; margin:6px 2px 0; text-align:center; }
 .menu {
   display: grid;
@@ -291,10 +296,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
     <div class="landing-dashboard-title">Mijn golf in cijfers</div>
     <div class="landing-kpis">
-      <div class="landing-kpi"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></div>
-      <div class="landing-kpi"><strong id="landingRoundsKpi">—</strong><span>Aantal rondes</span></div>
-      <div class="landing-kpi"><strong id="landingPointsKpi">—</strong><span>Gem. punten</span></div>
-      <div class="landing-kpi"><strong id="landingStrokesKpi">—</strong><span>Gem. slagen · Front 9</span></div>
+      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></div><svg class="landing-sparkline" id="landingHcpSpark" viewBox="0 0 76 36" aria-label="HCP evolutie" role="img"></svg></div>
+      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingRoundsKpi">—</strong><span>Aantal rondes</span></div></div>
+      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingPointsKpi">—</strong><span>Gem. punten</span></div><svg class="landing-sparkline" id="landingPointsSpark" viewBox="0 0 76 36" aria-label="Punten evolutie" role="img"></svg></div>
+      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingStrokesKpi">—</strong><span>Gem. slagen · Front 9</span></div><svg class="landing-sparkline" id="landingStrokesSpark" viewBox="0 0 76 36" aria-label="Slagen evolutie" role="img"></svg></div>
     </div>
     <p id="landingDashboardMessage">Meld je aan om je persoonlijke cijfers te bekijken.</p>
   </div>
@@ -1168,6 +1173,21 @@ async function saveRabbitRound() {
   await loadHistory();
   await loadLandingDashboard();
 }
+function drawLandingSparkline(id, values, lowerIsBetter = false) {
+  const svg = document.getElementById(id);
+  if (!svg) return;
+  const nums = (values || []).map(Number).filter(Number.isFinite).slice(-10);
+  if (!nums.length) {
+    svg.innerHTML = '<circle class="spark-empty" cx="4" cy="18" r="2.5"/><circle class="spark-empty" cx="72" cy="18" r="2.5"/>';
+    return;
+  }
+  if (nums.length === 1) nums.unshift(nums[0]);
+  const min = Math.min(...nums), max = Math.max(...nums);
+  const span = max - min || 1;
+  const points = nums.map((v, i) => `${(4 + i * 68 / (nums.length - 1)).toFixed(1)},${(30 - ((v - min) / span) * 24).toFixed(1)}`);
+  svg.innerHTML = `<polyline points="${points.join(' ')}"></polyline><circle class="spark-dot" cx="${points[points.length-1].split(',')[0]}" cy="${points[points.length-1].split(',')[1]}" r="2.7"></circle>`;
+}
+
 async function loadLandingDashboard() {
   const roundsEl = document.getElementById("landingRoundsKpi");
   const pointsEl = document.getElementById("landingPointsKpi");
@@ -1181,6 +1201,7 @@ async function loadLandingDashboard() {
     if (userError || !user) {
       roundsEl.textContent = "—"; pointsEl.textContent = "—"; hcpEl.textContent = "—"; strokesEl.textContent = "—";
       msg.textContent = "Meld je aan via Mijn account voor je persoonlijke cijfers.";
+      ["landingHcpSpark","landingPointsSpark","landingStrokesSpark"].forEach(id => drawLandingSparkline(id, []));
       return;
     }
     const { data, error } = await db.from("golf_rounds")
@@ -1191,6 +1212,7 @@ async function loadLandingDashboard() {
     const rounds = data || [];
     roundsEl.textContent = String(rounds.length);
     const points = rounds.map(r => Number(r.net_points)).filter(Number.isFinite);
+    drawLandingSparkline("landingPointsSpark", rounds.map(r => r.net_points).filter(v => v != null && Number.isFinite(Number(v))));
     pointsEl.textContent = points.length
       ? (points.reduce((sum, n) => sum + n, 0) / points.length).toLocaleString("nl-BE", { maximumFractionDigits: 1 })
       : "—";
@@ -1200,6 +1222,7 @@ async function loadLandingDashboard() {
       ? (front9Rounds.reduce((sum, r) => sum + Number(r.total_strokes), 0) / front9Rounds.length)
           .toLocaleString("nl-BE", { maximumFractionDigits: 1 })
       : "—";
+    drawLandingSparkline("landingStrokesSpark", front9Rounds.map(r => r.total_strokes), true);
     // Toon eerst de actuele HCP uit de accountinstelling; gebruik anders de HCP van de recentste ronde.
     const accountHcp = Number(user.user_metadata && user.user_metadata.default_hcp);
     const hasAccountHcp = user.user_metadata && user.user_metadata.default_hcp != null
@@ -1209,9 +1232,11 @@ async function loadLandingDashboard() {
     hcpEl.textContent = currentHcp == null
       ? "—"
       : currentHcp.toLocaleString("nl-BE", { maximumFractionDigits: 1 });
+    drawLandingSparkline("landingHcpSpark", rounds.map(r => r.handicap_index).filter(v => v != null && Number.isFinite(Number(v))));
     msg.textContent = rounds.length ? "Gebaseerd op je opgeslagen rondes." : "Nog geen rondes opgeslagen. Je cijfers verschijnen na je eerste ronde.";
   } catch (error) {
     strokesEl.textContent = "—";
+    ["landingHcpSpark","landingPointsSpark","landingStrokesSpark"].forEach(id => drawLandingSparkline(id, []));
     msg.textContent = "Je dashboard kon niet worden geladen.";
     console.warn("Landing dashboard laden mislukt:", error);
   }
