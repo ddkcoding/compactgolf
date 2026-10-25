@@ -34,6 +34,24 @@ button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #6b9b79; outline-offset: 2px; }
 button:not(.menu-button) { accent-color: var(--green); }
 input, select { border: 1px solid #cbd6cc; border-radius: 6px; background: #fff; color: #203128; }
+#rabbitPage .rabbit-settings {
+  display:flex; flex-wrap:nowrap; gap:6px; margin:7px 0 10px; justify-content:space-between;
+}
+#rabbitPage .rabbit-settings label { gap:3px; white-space:nowrap; font-size:12px; }
+#rabbitPage .rabbit-settings input { font-size:13px; }
+#rabbitPage .save-hcp-button { padding:5px 7px; font-size:12px; white-space:nowrap; }
+#rabbitPage .rabbit-settings select { max-width:94px; font-size:12px; padding:4px 2px; }
+#rabbitPage .rabbit-summary { padding:8px 10px; line-height:1.5; margin-top:6px; }
+#rabbitPage .playing-hcp { font-size:14px; }
+#rabbitPage .phcp-override-label { margin-top:5px; font-size:12px; }
+#rabbitPage #phcpOverride { width:48px; }
+#rabbitPage #teeInfo { margin-top:4px; font-size:11px; color:#52665a; }
+#rabbitPage .rabbit-totals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:8px 0 12px; }
+#rabbitPage .rabbit-totals > div { min-width:0; padding:7px 4px; text-align:center; border:1px solid #d6e0d6; border-radius:7px; background:#fff; font-size:11px; color:#52665a; }
+#rabbitPage .rabbit-totals strong { display:block; font-size:17px; color:var(--green); }
+#rabbitPage .rabbit-totals .big { font-size:19px; }
+#rabbitPage table th { padding:5px 1px; }
+
 .summary { background: #fff; border-color: #d6e0d6; }
 th { background: #e8efe8; color: var(--green); }
 .back { border-color: #cbd6cc; color: var(--green); background: #fff; }
@@ -44,7 +62,7 @@ th { background: #e8efe8; color: var(--green); }
   padding: 12px 8px 10px;
 }
 
-.home-er .home-icon { width:64px; height:64px; object-fit:contain; display:block; margin:0 auto 6px; border-radius:14px; }
+.home-er .emoji { font-size: 30px; }
 .home-er h1 { color: var(--green); }
 .home-er p { color: #666; }
 
@@ -267,8 +285,9 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 
 <section id="landing">
   <div class="home-er">
-    <img class="home-icon" src="apple-touch-icon.png" alt="Waregem Golf Score-icoon">
+    <div class="emoji">🏌️</div>
     <h1>Waregem Golf Score</h1>
+    <p>Kies je scorekaart</p>
   </div>
 
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
@@ -413,29 +432,25 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     <h2>Front 9</h2>
   </div>
 
-  <div class="settings">
+  <div class="settings rabbit-settings">
     <label>
       HCP:
-      <input id="rabbitHcp" type="number" min="0" max="54" step="0.1" value="45" onchange="recalcRabbit()" style="width:85px">
+      <input id="rabbitHcp" type="number" min="0" max="54" step="0.1" value="45" onchange="recalcRabbit()" style="width:64px">
     </label>
-    <button type="button" class="back" onclick="saveDefaultHcp()">hcp als standaard bewaren</button>
-
-<label>Tee:
-  <select id="tee" onchange="recalcRabbit()">
-    <option value="red">Rood</option>
-    <option value="blue" selected>Blauw heren</option>
-    <option value="yellow">Geel heren</option>
-    <option value="white">Wit heren</option>
-  </select>
-</label>
+    <button type="button" class="back save-hcp-button" onclick="saveDefaultHcp()">save hcp</button>
+    <label class="tee-label">Tee:
+      <select id="tee" onchange="recalcRabbit()">
+        <option value="red">Rood</option>
+        <option value="blue" selected>Blauw</option>
+        <option value="yellow">Geel</option>
+        <option value="white">Wit</option>
+      </select>
+    </label>
   </div>
 
-  <div class="summary">
-    Playing HCP (9 holes):
-    <strong id="phcp">21</strong>
-    <div id="teeInfo"></div>
-
-    <label style="margin-top:5px">
+  <div class="summary rabbit-summary">
+    <div class="playing-hcp">Playing HCP (9 holes): <strong id="phcp">21</strong></div>
+    <label class="phcp-override-label">
       PHCP aanpassen:
       <input
         id="phcpOverride"
@@ -445,6 +460,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         value="21"
         oninput="recalcRabbit(true)">
     </label>
+    <div id="teeInfo"></div>
   </div>
 
   <table>
@@ -454,6 +470,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         <th>Par</th>
         <th>SI</th>
         <th>+</th>
+        <th>PPar</th>
         <th>Slagen</th>
         <th>Puts</th>
         <th>Net</th>
@@ -463,12 +480,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     <tbody id="rabbitRows"></tbody>
   </table>
 
-  <div class="summary">
-    Slagen: <strong id="rabbitStrokes">0</strong><br>
-    Puts: <strong id="rabbitPutts">0</strong><br>
-    Par: <strong>37</strong><br>
-    Nettopunten:
-    <span class="big" id="netTotal">0</span>
+  <div class="rabbit-totals">
+    <div>Slagen <strong id="rabbitStrokes">0</strong></div>
+    <div>Puts <strong id="rabbitPutts">0</strong></div>
+    <div>Nettopunten <strong class="big" id="netTotal">0</strong></div>
   </div>
 
   <div class="settings" style="margin-top:12px">
@@ -479,9 +494,8 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <p id="saveMessage" role="status"></p>
 
   <div class="note">
-    De tee-ratings zijn overgenomen uit de Course Handicap Table van Waregem Golf
-    voor holes 1–9 (pagina’s 6–9, afgedrukt op 12/11/2020). De PHCP wordt berekend
-    volgens deze tabel. Je kunt de PHCP nog handmatig aanpassen als dat nodig is.
+    Tee-ratings volgens de Course Handicap Table van Waregem Golf (holes 1–9, afdruk 12/11/2020).
+    PHCP wordt volgens deze tabel berekend en kan handmatig worden aangepast.
   </div>
 </section>
 
@@ -658,6 +672,7 @@ rabbitCourse.forEach(h => {
       <td>${h.par}</td>
       <td>${h.si}</td>
       <td id="re${h.hole}">0</td>
+      <td id="rppar${h.hole}">${h.par}</td>
       <td>
         <input type="number" min="1" max="20"
           inputmode="numeric"
@@ -695,7 +710,7 @@ function recalcRabbit(manual = false, preserveOverride = false) {
   document.getElementById("phcp").textContent = phcp;
 
   document.getElementById("teeInfo").textContent =
-    `${tee.name} · Course Rating ${tee.rating} · Slope ${tee.slope}`;
+    `CR ${tee.rating.toFixed(1).replace(".", ",")} · Slope ${tee.slope} · Par 37`;
 
   // Eerst gelijkmatig verdelen, daarna resterende slagen
   // toewijzen aan holes met de laagste SI.
@@ -729,6 +744,7 @@ function recalcRabbit(manual = false, preserveOverride = false) {
     }
 
     document.getElementById(`re${h.hole}`).textContent = extra;
+    document.getElementById(`rppar${h.hole}`).textContent = h.par + extra;
     document.getElementById(`rn${h.hole}`).textContent =
       hasScore ? net : "–";
     document.getElementById(`rc${h.hole}`).textContent = cumulative;
