@@ -492,6 +492,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     <button id="cancelEditButton" class="menu-button hidden" style="padding:10px 14px;background:#666" onclick="cancelEditRound()">Annuleren</button>
   </div>
   <p id="saveMessage" role="status"></p>
+  <p id="draftStatus" role="status" style="font-size:12px;color:#52665a;margin-top:4px">Automatisch bewaren staat klaar.</p>
 
   <div class="note">
     Tee-ratings volgens de Course Handicap Table van Waregem Golf (holes 1–9, afdruk 12/11/2020).
@@ -757,6 +758,57 @@ function recalcRabbit(manual = false, preserveOverride = false) {
   }, 0);
   document.getElementById("rabbitPutts").textContent = puttsTotal;
   document.getElementById("netTotal").textContent = netTotal;
+  saveRabbitDraft();
+}
+
+
+/* =====================================
+   LOKAAL TUSSENTIJDS BEWAREN
+===================================== */
+const RABBIT_DRAFT_KEY = "waregemRabbitDraftV1";
+let restoringRabbitDraft = false;
+function saveRabbitDraft() {
+  if (restoringRabbitDraft) return;
+  const status = document.getElementById("draftStatus");
+  try {
+    const draft = {
+      savedAt: new Date().toISOString(),
+      hcp: document.getElementById("rabbitHcp").value,
+      tee: document.getElementById("tee").value,
+      phcp: document.getElementById("phcpOverride").value,
+      date: document.getElementById("rabbitDate").value,
+      scores: rabbitCourse.map(h => ({
+        hole: h.hole,
+        strokes: document.getElementById(`rs${h.hole}`).value,
+        putts: document.getElementById(`rp${h.hole}`).value
+      }))
+    };
+    localStorage.setItem(RABBIT_DRAFT_KEY, JSON.stringify(draft));
+    if (status) status.textContent = "Tussentijds lokaal bewaard op dit toestel.";
+  } catch (e) {
+    if (status) status.textContent = "Lokaal bewaren lukt niet in deze browser. Bewaar je ronde online zodra je verbinding hebt.";
+  }
+}
+function restoreRabbitDraft() {
+  let draft;
+  try { draft = JSON.parse(localStorage.getItem(RABBIT_DRAFT_KEY) || "null"); } catch (_) { return; }
+  if (!draft || !Array.isArray(draft.scores) || !draft.scores.some(s => s.strokes !== "" || s.putts !== "")) return;
+  const when = draft.savedAt ? new Date(draft.savedAt).toLocaleString() : "eerder";
+  if (!confirm(`Er staat een onafgewerkte Front 9-ronde klaar (${when}). Wil je die hervatten? Kies Annuleren om de huidige lege invoer te behouden.`)) return;
+  restoringRabbitDraft = true;
+  document.getElementById("rabbitHcp").value = draft.hcp ?? getDefaultHcp();
+  document.getElementById("tee").value = draft.tee || "blue";
+  document.getElementById("phcpOverride").value = draft.phcp ?? "21";
+  document.getElementById("rabbitDate").value = draft.date || new Date().toISOString().slice(0,10);
+  draft.scores.forEach(s => {
+    if (!rabbitCourse.some(h => h.hole === Number(s.hole))) return;
+    document.getElementById(`rs${s.hole}`).value = s.strokes ?? "";
+    document.getElementById(`rp${s.hole}`).value = s.putts ?? "";
+  });
+  restoringRabbitDraft = false;
+  recalcRabbit(false, true);
+  const status = document.getElementById("draftStatus");
+  if (status) status.textContent = "Onafgewerkte ronde hervat. Bewaar online wanneer alle 9 holes ingevuld zijn.";
 }
 
 
@@ -1108,6 +1160,9 @@ async function saveRabbitRound() {
   setMessage("saveMessage", wasEditing
     ? "Ronde succesvol gewijzigd in je online historiek."
     : "Ronde succesvol bewaard in je online historiek.");
+  try { localStorage.removeItem(RABBIT_DRAFT_KEY); } catch (_) {}
+  const draftStatus = document.getElementById("draftStatus");
+  if (draftStatus) draftStatus.textContent = "Ronde online opgeslagen in je historiek.";
   await loadHistory();
   await loadLandingDashboard();
 }
@@ -1354,8 +1409,15 @@ if (window.supabase) {
 
 document.getElementById("rabbitDate").value = new Date().toISOString().slice(0,10);
 document.getElementById("rabbitHcp").value = String(getDefaultHcp());
+// Ook putts en datum bewaren direct bij elke wijziging.
+rabbitCourse.forEach(h => document.getElementById(`rp${h.hole}`).addEventListener("input", saveRabbitDraft));
+document.getElementById("rabbitDate").addEventListener("change", saveRabbitDraft);
+document.getElementById("rabbitHcp").addEventListener("input", () => { recalcRabbit(); });
+document.getElementById("tee").addEventListener("change", () => recalcRabbit());
+document.getElementById("phcpOverride").addEventListener("input", () => recalcRabbit(true));
+restoreRabbitDraft();
 recalcCompact();
-recalcRabbit();
+recalcRabbit(false, true);
 loadLandingDashboard();
 
 </script>
