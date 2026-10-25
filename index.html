@@ -367,10 +367,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         <option value="net_points">Nettopunten</option>
         <option value="handicap_index">hcp-evolutie</option>
         <option value="total_strokes">Totaal slagen</option>
-        <option value="total_putts">Totaal puts</option>
+        <option value="total_putts">Totaal putts</option>
         <option value="gross_points">Brutopunten</option>
         <option value="avg_strokes">Gemiddeld slagen per hole</option>
-        <option value="avg_putts">Gemiddeld puts per hole</option>
+        <option value="avg_putts">Gemiddeld putts per hole</option>
       </select>
     </div>
     <div class="chart-wrap" id="historyChartWrap">
@@ -470,7 +470,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         <th>+</th>
         <th>PPar</th>
         <th>Slagen</th>
-        <th>Puts</th>
+        <th>Putts</th>
         <th>Net</th>
       </tr>
     </thead>
@@ -682,7 +682,7 @@ rabbitCourse.forEach(h => {
           inputmode="numeric"
           id="rs${h.hole}" oninput="recalcRabbit()">
       </td>
-      <td><input type="number" min="0" max="10" inputmode="numeric" id="rp${h.hole}" aria-label="Puts hole ${h.hole}"></td>
+      <td><input type="number" min="0" max="10" inputmode="numeric" id="rp${h.hole}" aria-label="Putts hole ${h.hole}"></td>
       <td id="rn${h.hole}">–</td>
     </tr>`;
 });
@@ -1064,7 +1064,7 @@ async function saveRabbitRound() {
     return;
   }
   if (scores.some(s => !Number.isInteger(s.putts) || s.putts < 0 || s.putts > 10)) {
-    setMessage("saveMessage", "Vul ook het aantal puts (0–10) in voor alle 9 holes.");
+    setMessage("saveMessage", "Vul ook het aantal putts (0–10) in voor alle 9 holes.");
     return;
   }
   const hcp = Number(document.getElementById("rabbitHcp").value);
@@ -1332,8 +1332,8 @@ function drawHistoryChart(rounds) {
   const metricSelect = document.getElementById("historyMetric");
   const metric = metricSelect ? metricSelect.value : "net_points";
   const labels = {
-    net_points: "nettopunten", handicap_index: "hcp-evolutie", total_strokes: "totaal slagen", total_putts: "totaal puts",
-    gross_points: "brutopunten", avg_strokes: "gemiddeld slagen per hole", avg_putts: "gemiddeld puts per hole"
+    net_points: "nettopunten", handicap_index: "hcp-evolutie", total_strokes: "totaal slagen", total_putts: "totaal putts",
+    gross_points: "brutopunten", avg_strokes: "gemiddeld slagen per hole", avg_putts: "gemiddeld putts per hole"
   };
   if (!rounds.length) {
     ctx.fillStyle = "#666"; ctx.font = "13px sans-serif";
