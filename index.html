@@ -46,10 +46,8 @@ input, select { border: 1px solid #cbd6cc; border-radius: 6px; background: #fff;
 #rabbitPage .phcp-override-label { margin-top:5px; font-size:12px; }
 #rabbitPage #phcpOverride { width:48px; }
 #rabbitPage #teeInfo { margin-top:4px; font-size:11px; color:#52665a; }
-#rabbitPage .rabbit-totals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:8px 0 12px; }
-#rabbitPage .rabbit-totals > div { min-width:0; padding:7px 4px; text-align:center; border:1px solid #d6e0d6; border-radius:7px; background:#fff; font-size:11px; color:#52665a; }
-#rabbitPage .rabbit-totals strong { display:block; font-size:17px; color:var(--green); }
-#rabbitPage .rabbit-totals .big { font-size:19px; }
+#rabbitPage #rabbitTotalRow { font-weight:700; background:#edf4ee; border-top:2px solid #9aaf9d; }
+#rabbitPage #rabbitTotalRow td { padding:6px 2px; font-size:12px; }
 #rabbitPage table th { padding:5px 1px; }
 
 .summary { background: #fff; border-color: #d6e0d6; }
@@ -474,17 +472,22 @@ button:disabled { opacity:.5; cursor:not-allowed; }
         <th>Slagen</th>
         <th>Puts</th>
         <th>Net</th>
-        <th>∑</th>
       </tr>
     </thead>
     <tbody id="rabbitRows"></tbody>
+    <tfoot>
+      <tr id="rabbitTotalRow">
+        <td>Totaal</td>
+        <td id="rabbitParTotal">37</td>
+        <td></td>
+        <td id="rabbitExtraTotal">0</td>
+        <td id="rabbitPParTotal">37</td>
+        <td id="rabbitStrokes">0</td>
+        <td id="rabbitPutts">0</td>
+        <td id="netTotal">0</td>
+      </tr>
+    </tfoot>
   </table>
-
-  <div class="rabbit-totals">
-    <div>Slagen <strong id="rabbitStrokes">0</strong></div>
-    <div>Puts <strong id="rabbitPutts">0</strong></div>
-    <div>Nettopunten <strong class="big" id="netTotal">0</strong></div>
-  </div>
 
   <div class="settings" style="margin-top:12px">
     <label>Datum <input type="date" id="rabbitDate"></label>
@@ -681,7 +684,6 @@ rabbitCourse.forEach(h => {
       </td>
       <td><input type="number" min="0" max="10" inputmode="numeric" id="rp${h.hole}" aria-label="Puts hole ${h.hole}"></td>
       <td id="rn${h.hole}">–</td>
-      <td id="rc${h.hole}">0</td>
     </tr>`;
 });
 
@@ -719,12 +721,12 @@ function recalcRabbit(manual = false, preserveOverride = false) {
   const remainder = phcp % 9;
 
   let strokesTotal = 0;
-  let brutTotal = 0;
   let netTotal = 0;
-  let cumulative = 0;
+  let extraTotal = 0;
 
   rabbitCourse.forEach(h => {
     const extra = base + (h.si <= remainder ? 1 : 0);
+    extraTotal += extra;
     const field = document.getElementById(`rs${h.hole}`);
     const hasScore = field.value !== "" && Number(field.value) > 0;
     const strokes = Number(field.value);
@@ -739,18 +741,18 @@ function recalcRabbit(manual = false, preserveOverride = false) {
 
     if (hasScore) {
       strokesTotal += strokes;
-      brutTotal += brut;
       netTotal += net;
-      cumulative += net;
     }
 
     document.getElementById(`re${h.hole}`).textContent = extra;
     document.getElementById(`rppar${h.hole}`).textContent = h.par + extra;
     document.getElementById(`rn${h.hole}`).textContent =
       hasScore ? net : "–";
-    document.getElementById(`rc${h.hole}`).textContent = cumulative;
   });
 
+  document.getElementById("rabbitParTotal").textContent = rabbitCourse.reduce((sum, h) => sum + h.par, 0);
+  document.getElementById("rabbitExtraTotal").textContent = extraTotal;
+  document.getElementById("rabbitPParTotal").textContent = rabbitCourse.reduce((sum, h) => sum + h.par, 0) + extraTotal;
   document.getElementById("rabbitStrokes").textContent = strokesTotal;
   const puttsTotal = rabbitCourse.reduce((sum, h) => {
     const value = document.getElementById(`rp${h.hole}`).value;
