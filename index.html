@@ -280,6 +280,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   th, td { padding: 5px 1px; }
   input[type="number"] { width: 32px; }
 }
+
+@media (display-mode: standalone) {
+  body { padding-top: calc(env(safe-area-inset-top) + 40px); }
+}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
