@@ -291,7 +291,6 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <div class="home-er">
     <img class="home-logo" src="apple-touch-icon.png" alt="Waregem Golf" />
     <h1>Waregem Golf Score</h1>
-    <p>Kies je scorekaart</p>
   </div>
 
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
@@ -306,14 +305,6 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   </div>
 
   <div class="menu">
-    <button class="menu-button" onclick="showPage('compact')">
-      <strong>Waregem </strong>
-      <span>
-        De originele calculator met 2 rondes van 6 holes
-        en HCP 52, 50, 48 of 46.
-      </span>
-    </button>
-
     <button class="menu-button" onclick="showPage('rabbit')">
       <strong>Front 9</strong>
       <span>
@@ -322,14 +313,22 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       </span>
     </button>
 
-    <button class="menu-button" onclick="showPage('account')">
-      <strong>Mijn account</strong>
-      <span>Aanmelden om je rondes online te bewaren.</span>
+    <button class="menu-button" onclick="showPage('compact')">
+      <strong>Compact</strong>
+      <span>
+        De originele calculator met 2 rondes van 6 holes
+        en HCP 52, 50, 48 of 46.
+      </span>
     </button>
 
     <button class="menu-button" onclick="showPage('history')">
       <strong>Mijn historiek & evolutie</strong>
       <span>Bekijk je opgeslagen rondes en evolutie van Stableford-punten.</span>
+    </button>
+
+    <button class="menu-button" onclick="showPage('account')">
+      <strong>Mijn account</strong>
+      <span>Aanmelden om je rondes online te bewaren.</span>
     </button>
   </div>
 </section>
