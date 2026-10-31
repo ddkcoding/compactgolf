@@ -223,6 +223,25 @@ tbody tr:nth-child(even) td { background: #f5f8f4; }
 .chart-wrap { position:relative; width:100%; }
 .chart-value-tip { position:absolute; display:none; pointer-events:none; transform:translate(-50%,-100%); background:#173d2a; color:#fff; border-radius:5px; padding:3px 7px; font-size:12px; line-height:1.2; white-space:nowrap; z-index:2; }
 #historyList { overflow-x:hidden; margin-top:10px; width:100%; }
+.history-demo-actions, .history-filters { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; align-items:center; }
+.history-filters label { font-size:12px; }
+.history-report { margin:12px 0; }
+.history-report h3 { margin:12px 0 6px; color:var(--green); font-size:14px; }
+.history-report table { font-size:11px; }
+.history-report th, .history-report td { padding:5px 3px; }
+.score-chart-legend { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0; font-size:11px; color:#52665a; }
+.score-chart-legend span { display:inline-flex; align-items:center; gap:5px; }
+.score-chart-swatch { display:inline-block; width:12px; height:12px; border-radius:3px; }
+.score-chart-swatch.course-par, .score-bar.course-par { background:#7eaa8b; }
+.score-chart-swatch.personal-par, .score-bar.personal-par { background:#315f91; }
+.score-chart-row { display:grid; grid-template-columns:112px minmax(0,1fr); gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid #e4e9e4; }
+.score-chart-label { font-size:11px; }
+.score-chart-bars { display:grid; gap:3px; }
+.score-bar-line { display:grid; grid-template-columns:minmax(0,1fr) 25px; gap:6px; align-items:center; min-height:11px; }
+.score-bar-track { height:10px; border-radius:5px; background:#eef2ee; overflow:hidden; }
+.score-bar { display:block; height:100%; min-width:0; border-radius:5px; }
+.score-bar-count { font-size:10px; text-align:right; color:#52665a; }
+@media (max-width:430px) { .score-chart-row { grid-template-columns:86px minmax(0,1fr); gap:5px; } }
 #historyTable { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; }
 #historyTable th, #historyTable td { padding:5px 3px; border-bottom:1px solid #ddd; text-align:left; overflow-wrap:anywhere; }
 #historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; font-size:9px; text-transform:lowercase; }
@@ -377,10 +396,14 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     <h2>Mijn historiek & evolutie</h2>
   </div>
   <p id="historyMessage">Meld je aan om je historiek te bekijken.</p>
+  <div class="history-demo-actions">
+    <button type="button" class="back" onclick="showHistoryDemo()">Toon voorbeeldgegevens</button>
+    <button type="button" class="back" onclick="showSavedHistory()">Terug naar mijn historiek</button>
+  </div>
   <div class="summary">
     <div class="chart-settings">
       <strong>Evolutie:</strong>
-      <select id="historyMetric" onchange="loadHistory()" aria-label="Kies grafiekmetric">
+      <select id="historyMetric" onchange="refreshHistoryView()" aria-label="Kies grafiekmetric">
         <option value="net_points">Nettopunten</option>
         <option value="handicap_index">hcp-evolutie</option>
         <option value="total_strokes">Totaal slagen</option>
@@ -395,7 +418,45 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       <div class="chart-value-tip" id="historyChartTip" aria-live="polite"></div>
     </div>
   </div>
+  <div class="summary history-report">
+    <h3>Rapportering per hole</h3>
+    <div id="holeReport"></div>
+    <h3>Verdeling van scores</h3>
+    <div id="scoreReport"></div>
+  </div>
+  <h3>Meest recente rondes</h3>
   <div id="historyList" aria-live="polite"></div>
+  <button type="button" class="back" onclick="showPage('historyFull')">Volledige historiek en filters</button>
+</section>
+
+<section id="historyFullPage" class="hidden">
+  <div class="topbar">
+    <button class="back" onclick="showPage('history')">← Historiek</button>
+    <h2>Volledige historiek</h2>
+  </div>
+  <p id="historyFullMessage" class="note"></p>
+  <div class="history-filters">
+    <label>Van <input type="date" id="historyDateFrom" onchange="applyHistoryFilters()"></label>
+    <label>Tot <input type="date" id="historyDateTo" onchange="applyHistoryFilters()"></label>
+    <label>Wedstrijd
+      <select id="historyCompetitionFilter" onchange="applyHistoryFilters()">
+        <option value="all">Alle rondes</option>
+        <option value="competition">Wedstrijden</option>
+        <option value="practice">Oefenrondes</option>
+      </select>
+    </label>
+    <label>Tee
+      <select id="historyTeeFilter" onchange="applyHistoryFilters()">
+        <option value="all">Alle tees</option>
+        <option value="red">Rood</option>
+        <option value="blue">Blauw</option>
+        <option value="yellow">Geel</option>
+        <option value="white">Wit</option>
+      </select>
+    </label>
+    <button type="button" class="back" onclick="resetHistoryFilters()">Filters wissen</button>
+  </div>
+  <div id="historyFullList" aria-live="polite"></div>
 </section>
 
 
@@ -529,14 +590,15 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 ===================================== */
 
 function showPage(page) {
-  ["landing","compactPage","rabbitPage","accountPage","historyPage"].forEach(id => {
+  ["landing","compactPage","rabbitPage","accountPage","historyPage","historyFullPage"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle("hidden",
       (page === "home" && id !== "landing") ||
       (page === "compact" && id !== "compactPage") ||
       (page === "rabbit" && id !== "rabbitPage") ||
       (page === "account" && id !== "accountPage") ||
-      (page === "history" && id !== "historyPage"));
+      (page === "history" && id !== "historyPage") ||
+      (page === "historyFull" && id !== "historyFullPage"));
   });
   if (page === "home") loadLandingDashboard();
   if (page === "compact") recalcCompact();
@@ -544,7 +606,14 @@ function showPage(page) {
     if (!editingRoundId) loadDefaultHcpForRound();
     recalcRabbit(false, true);
   }
-  if (page === "history") loadHistory();
+  if (page === "history") {
+    if (historyDemoActive) renderHistoryData(historyRounds, historyHoleScores, true);
+    else loadHistory();
+  }
+  if (page === "historyFull") {
+    if (historyRounds.length || historyDemoActive) renderFullHistory();
+    else loadHistory();
+  }
   if (page === "account") { refreshAuthStatus(); loadAccountDefaultHcp(); }
   window.scrollTo(0, 0);
 }
@@ -894,6 +963,7 @@ function explainSupabaseSetup() {
   if (!db) {
     setMessage("authMessage", "Vul eerst SUPABASE_URL en SUPABASE_PUBLISHABLE_KEY in bovenaan het Supabase-gedeelte van de code.");
     setMessage("historyMessage", "De Supabase-verbinding is nog niet ingesteld.");
+    setMessage("historyFullMessage", "De Supabase-verbinding is nog niet ingesteld.");
     return false;
   }
   return true;
@@ -940,6 +1010,12 @@ async function signIn() {
 async function signOut() {
   if (!db) return;
   const { error } = await db.auth.signOut();
+  if (!error) {
+    historyLoadVersion += 1;
+    historyDemoActive = false;
+    historyRounds = [];
+    historyHoleScores = [];
+  }
   setMessage("authMessage", error ? error.message : "Je bent afgemeld.");
   refreshAuthStatus();
 }
@@ -1291,13 +1367,118 @@ async function loadLandingDashboard() {
   }
 }
 
+let historyDemoActive = false;
+let historyLoadVersion = 0;
+let historyRounds = [];
+let historyHoleScores = [];
+
+function refreshHistoryView() {
+  if (historyDemoActive) showHistoryDemo();
+  else loadHistory();
+}
+
+function showSavedHistory() {
+  historyDemoActive = false;
+  loadHistory();
+}
+
+function showHistoryDemo() {
+  historyLoadVersion += 1;
+  historyDemoActive = true;
+  const today = new Date();
+  const dateDaysAgo = days => {
+    const date = new Date(today);
+    date.setDate(date.getDate() - days);
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
+  };
+  const rounds = [
+    {id:"demo-1", days:190, tee:"blue", handicap_index:45, playing_handicap:21, total_strokes:58, total_putts:22, gross_points:12, net_points:31, is_competition:false, deltas:[4,2,3,2,2,2,2,2,2]},
+    {id:"demo-2", days:165, tee:"blue", handicap_index:44, playing_handicap:20, total_strokes:55, total_putts:20, gross_points:15, net_points:34, is_competition:true, deltas:[2,1,3,2,2,2,2,2,2]},
+    {id:"demo-3", days:140, tee:"yellow", handicap_index:43, playing_handicap:20, total_strokes:57, total_putts:21, gross_points:13, net_points:32, is_competition:false, deltas:[3,1,3,2,2,2,2,3,2]},
+    {id:"demo-4", days:115, tee:"blue", handicap_index:42, playing_handicap:19, total_strokes:53, total_putts:19, gross_points:17, net_points:36, is_competition:true, deltas:[2,0,2,2,2,2,2,2,2]},
+    {id:"demo-5", days:90, tee:"red", handicap_index:41, playing_handicap:18, total_strokes:54, total_putts:20, gross_points:16, net_points:35, is_competition:false, deltas:[2,2,2,1,2,2,2,2,2]},
+    {id:"demo-6", days:65, tee:"blue", handicap_index:40, playing_handicap:18, total_strokes:51, total_putts:18, gross_points:19, net_points:38, is_competition:true, deltas:[2,-1,2,2,2,2,2,1,2]},
+    {id:"demo-7", days:35, tee:"yellow", handicap_index:39, playing_handicap:17, total_strokes:52, total_putts:19, gross_points:18, net_points:37, is_competition:false, deltas:[2,0,2,2,2,2,2,1,2]},
+    {id:"demo-8", days:8, tee:"blue", handicap_index:38, playing_handicap:17, total_strokes:49, total_putts:17, gross_points:21, net_points:40, is_competition:true, deltas:[1,-1,1,2,2,2,2,1,2]}
+  ].map(round => ({
+    ...round,
+    played_at:dateDaysAgo(round.days),
+    course:"Waregem Golf",
+    course_type:"Rabbit Front 9"
+  }));
+  rounds.forEach(round => {
+    let grossPoints = 0;
+    let netPoints = 0;
+    let totalStrokes = 0;
+    const baseExtra = Math.floor(round.playing_handicap / 9);
+    const extraRemainder = round.playing_handicap % 9;
+    rabbitCourse.forEach((hole, index) => {
+      const strokes = hole.par + round.deltas[index];
+      const extra = baseExtra + (hole.si <= extraRemainder ? 1 : 0);
+      totalStrokes += strokes;
+      grossPoints += Math.max(0, 2 + hole.par - strokes);
+      netPoints += Math.max(0, 2 + hole.par + extra - strokes);
+    });
+    round.total_strokes = totalStrokes;
+    round.gross_points = grossPoints;
+    round.net_points = netPoints;
+  });
+  const holeScores = rounds.flatMap(round => {
+    let remainingPutts = round.total_putts;
+    return rabbitCourse.map((hole, index) => {
+      const putts = index === rabbitCourse.length - 1
+        ? remainingPutts
+        : Math.floor(round.total_putts / rabbitCourse.length) + (index < round.total_putts % rabbitCourse.length ? 1 : 0);
+      remainingPutts -= putts;
+      const strokes = hole.par + round.deltas[index];
+      const baseExtra = Math.floor(round.playing_handicap / 9);
+      const remainder = round.playing_handicap % 9;
+      const extra = baseExtra + (hole.si <= remainder ? 1 : 0);
+      return {
+        round_id:round.id,
+        hole_number:hole.hole,
+        par:hole.par,
+        extra_strokes:extra,
+        strokes,
+        putts,
+        net_points:Math.max(0, 2 + hole.par + extra - strokes)
+      };
+    });
+  });
+  setMessage("historyMessage", "Voorbeeldweergave met fictieve rondes. Deze gegevens zijn niet opgeslagen.");
+  setMessage("historyFullMessage", "Voorbeeldweergave met fictieve rondes. Deze gegevens zijn niet opgeslagen.");
+  historyRounds = rounds;
+  historyHoleScores = holeScores;
+  renderHistoryData(rounds, holeScores, true);
+  if (!document.getElementById("historyFullPage").classList.contains("hidden")) renderFullHistory();
+}
+
 async function loadHistory() {
-  const list = document.getElementById("historyList");
-  list.innerHTML = "";
-  if (!explainSupabaseSetup()) return;
-  const { data: { user } } = await db.auth.getUser();
+  const version = ++historyLoadVersion;
+  historyDemoActive = false;
+  historyRounds = [];
+  historyHoleScores = [];
+  document.getElementById("historyList").replaceChildren();
+  document.getElementById("historyFullList").replaceChildren();
+  document.getElementById("holeReport").replaceChildren();
+  document.getElementById("scoreReport").replaceChildren();
+  if (!explainSupabaseSetup()) {
+    drawHistoryChart([]);
+    return;
+  }
+  const { data: { user }, error: userError } = await db.auth.getUser();
+  if (version !== historyLoadVersion) return;
+  if (userError && userError.message !== "Auth session missing!") {
+    setMessage("historyMessage", "Je account kon niet worden gecontroleerd: " + userError.message);
+    setMessage("historyFullMessage", "Je account kon niet worden gecontroleerd: " + userError.message);
+    drawHistoryChart([]);
+    return;
+  }
   if (!user) {
     setMessage("historyMessage", "Meld je aan via ‘Mijn account’ om je historiek te bekijken.");
+    setMessage("historyFullMessage", "Meld je aan om je volledige historiek te bekijken.");
     drawHistoryChart([]);
     return;
   }
@@ -1305,15 +1486,61 @@ async function loadHistory() {
     .select("id, played_at, course, course_type, tee, handicap_index, playing_handicap, total_strokes, total_putts, gross_points, net_points, is_competition")
     .eq("user_id", user.id)
     .order("played_at", { ascending: true });
+  if (version !== historyLoadVersion) return;
   if (error) {
     setMessage("historyMessage", "Historiek laden mislukt: " + error.message);
+    setMessage("historyFullMessage", "Historiek laden mislukt: " + error.message);
+    drawHistoryChart([]);
     return;
   }
-  setMessage("historyMessage", data.length ? `${data.length} opgeslagen ronde(s).` : "Je hebt nog geen rondes opgeslagen.");
+  const roundIds = data.map(round => round.id);
+  let holeScores = [];
+  let holeLoadError = "";
+  if (roundIds.length) {
+    const { data: holeData, error: holeError } = await db.from("golf_hole_scores")
+      .select("round_id, hole_number, par, extra_strokes, strokes, putts, net_points")
+      .in("round_id", roundIds);
+    if (version !== historyLoadVersion) return;
+    if (holeError) {
+      holeLoadError = "Rondes geladen, maar holescores ophalen mislukt: " + holeError.message;
+    } else {
+      holeScores = holeData || [];
+    }
+  }
+  historyRounds = data || [];
+  historyHoleScores = holeScores;
+  const roundMessage = data.length ? `${data.length} opgeslagen ronde(s).` : "Je hebt nog geen rondes opgeslagen.";
+  setMessage("historyMessage", holeLoadError || roundMessage);
+  setMessage("historyFullMessage", holeLoadError || roundMessage);
+  renderHistoryData(historyRounds, historyHoleScores);
+  if (!document.getElementById("historyFullPage").classList.contains("hidden")) renderFullHistory();
+}
+
+function renderHistoryData(data, holeScores, demo = false) {
+  const list = document.getElementById("historyList");
+  list.replaceChildren();
   // Keep the chart in chronological order; the table below shows newest rounds first.
   drawHistoryChart(data);
-  if (!data.length) return;
+  renderHoleReports(data, holeScores, demo);
+  const latestRounds = [...data].sort((a, b) => String(b.played_at || "").localeCompare(String(a.played_at || "")));
+  renderHistoryTable(latestRounds.slice(0, 5), demo, list);
+  if (data.length > 5) {
+    const note = document.createElement("p");
+    note.className = "note";
+    note.textContent = `Toont de 5 meest recente rondes van ${data.length}.`;
+    list.appendChild(note);
+  }
+}
 
+function renderHistoryTable(data, demo, list) {
+  list.replaceChildren();
+  if (!data.length) {
+    const empty = document.createElement("p");
+    empty.className = "note";
+    empty.textContent = "Geen rondes gevonden voor deze filters.";
+    list.appendChild(empty);
+    return;
+  }
   const table = document.createElement("table");
   table.id = "historyTable";
   const thead = document.createElement("thead");
@@ -1355,10 +1582,12 @@ async function loadHistory() {
     th.appendChild(button);
     headerRow.appendChild(th);
   });
-  const actionHeader = document.createElement("th");
-  actionHeader.scope = "col";
-  actionHeader.textContent = "actie";
-  headerRow.appendChild(actionHeader);
+  if (!demo) {
+    const actionHeader = document.createElement("th");
+    actionHeader.scope = "col";
+    actionHeader.textContent = "actie";
+    headerRow.appendChild(actionHeader);
+  }
   thead.appendChild(headerRow);
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
@@ -1394,25 +1623,27 @@ async function loadHistory() {
         if (index === 1) td.title = round.course_type || round.course || "";
         tr.appendChild(td);
       });
-      const deleteCell = document.createElement("td");
-      deleteCell.className = "delete-cell history-actions";
-      const edit = document.createElement("button");
-      edit.className = "edit-round";
-      edit.type = "button";
-      edit.textContent = "✏️";
-      edit.title = `Wijzig ronde van ${round.played_at}`;
-      edit.setAttribute("aria-label", `Wijzig ronde van ${round.played_at}`);
-      edit.onclick = () => editRound(round.id);
-      deleteCell.appendChild(edit);
-      const del = document.createElement("button");
-      del.className = "delete-round";
-      del.type = "button";
-      del.textContent = "🗑️";
-      del.title = `Verwijder ronde van ${round.played_at}`;
-      del.setAttribute("aria-label", `Verwijder ronde van ${round.played_at}`);
-      del.onclick = () => deleteRound(round.id, round.played_at);
-      deleteCell.appendChild(del);
-      tr.appendChild(deleteCell);
+      if (!demo) {
+        const deleteCell = document.createElement("td");
+        deleteCell.className = "delete-cell history-actions";
+        const edit = document.createElement("button");
+        edit.className = "edit-round";
+        edit.type = "button";
+        edit.textContent = "✏️";
+        edit.title = `Wijzig ronde van ${round.played_at}`;
+        edit.setAttribute("aria-label", `Wijzig ronde van ${round.played_at}`);
+        edit.onclick = () => editRound(round.id);
+        deleteCell.appendChild(edit);
+        const del = document.createElement("button");
+        del.className = "delete-round";
+        del.type = "button";
+        del.textContent = "🗑️";
+        del.title = `Verwijder ronde van ${round.played_at}`;
+        del.setAttribute("aria-label", `Verwijder ronde van ${round.played_at}`);
+        del.onclick = () => deleteRound(round.id, round.played_at);
+        deleteCell.appendChild(del);
+        tr.appendChild(deleteCell);
+      }
       tbody.appendChild(tr);
     });
     sortButtons.forEach(({th, button, label}, key) => {
@@ -1430,6 +1661,209 @@ async function loadHistory() {
   table.appendChild(tbody);
   list.appendChild(table);
 }
+
+function isFrontNineRound(round) {
+  return /front\s*9/i.test(String(round.course_type || round.course || ""));
+}
+
+function renderHoleReports(rounds, holeScores, demo = false) {
+  const holeReport = document.getElementById("holeReport");
+  const scoreReport = document.getElementById("scoreReport");
+  holeReport.replaceChildren();
+  scoreReport.replaceChildren();
+  const frontNineRounds = rounds.filter(isFrontNineRound);
+  const roundIds = new Set(frontNineRounds.map(round => round.id));
+  const scores = holeScores.filter(score => roundIds.has(score.round_id)
+    && rabbitCourse.some(hole => hole.hole === Number(score.hole_number))
+    && Number.isInteger(Number(score.hole_number))
+    && score.strokes != null
+    && Number.isFinite(Number(score.strokes))
+    && score.par != null
+    && Number.isFinite(Number(score.par)));
+  if (!scores.length) {
+    holeReport.textContent = "Er zijn nog geen Front 9-holescores om te rapporteren.";
+    scoreReport.textContent = "Er zijn nog geen Front 9-holescores om te rapporteren.";
+    return;
+  }
+
+  const note = document.createElement("p");
+  note.className = "note";
+  note.textContent = demo
+    ? `Gebaseerd op ${frontNineRounds.length} fictieve Front 9-ronde(s).`
+    : `Gebaseerd op ${frontNineRounds.length} opgeslagen Front 9-ronde(s).`;
+  holeReport.appendChild(note);
+
+  const holeTable = document.createElement("table");
+  const holeHead = document.createElement("thead");
+  const holeHeader = document.createElement("tr");
+  ["Hole", "Par", "Rondes", "Gem. slagen", "Gem. putts", "Gem. nettopunten"].forEach(label => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = label;
+    holeHeader.appendChild(th);
+  });
+  holeHead.appendChild(holeHeader);
+  holeTable.appendChild(holeHead);
+  const holeBody = document.createElement("tbody");
+  rabbitCourse.forEach(hole => {
+    const holeRoundScores = scores.filter(score => Number(score.hole_number) === hole.hole);
+    const row = document.createElement("tr");
+    const netPoints = holeRoundScores
+      .filter(score => score.net_points != null)
+      .map(score => Number(score.net_points))
+      .filter(Number.isFinite);
+    const values = [
+      hole.hole,
+      hole.par,
+      holeRoundScores.length,
+      averageValue(holeRoundScores.map(score => score.strokes)),
+      averageValue(holeRoundScores.map(score => score.putts)),
+      averageValue(netPoints)
+    ];
+    values.forEach(value => {
+      const td = document.createElement("td");
+      td.textContent = String(value);
+      row.appendChild(td);
+    });
+    holeBody.appendChild(row);
+  });
+  holeTable.appendChild(holeBody);
+  holeReport.appendChild(holeTable);
+
+  const scoreCategories = [
+    {label:"Albatros of beter", matches:delta => delta <= -3},
+    {label:"Eagle", matches:delta => delta === -2},
+    {label:"Birdie", matches:delta => delta === -1},
+    {label:"Par", matches:delta => delta === 0},
+    {label:"Bogey", matches:delta => delta === 1},
+    {label:"Double bogey", matches:delta => delta === 2},
+    {label:"Triple bogey", matches:delta => delta === 3},
+    {label:"Quadruple bogey", matches:delta => delta === 4},
+    {label:"Quintuple bogey of hoger", matches:delta => delta >= 5}
+  ];
+  const courseParCounts = countScoresByDelta(scores, score => Number(score.strokes) - Number(score.par), scoreCategories);
+  const personalParScores = scores.filter(score => score.extra_strokes != null && Number.isFinite(Number(score.extra_strokes)));
+  const personalParCounts = countScoresByDelta(
+    personalParScores,
+    score => Number(score.strokes) - Number(score.par) - Number(score.extra_strokes),
+    scoreCategories
+  );
+  const legend = document.createElement("div");
+  legend.className = "score-chart-legend";
+  [
+    {label:`Baanpar (${scores.length} holes)`, className:"course-par"},
+    {label:`Personal par (${personalParScores.length} holes)`, className:"personal-par"}
+  ].forEach(item => {
+    const entry = document.createElement("span");
+    const swatch = document.createElement("i");
+    swatch.className = `score-chart-swatch ${item.className}`;
+    swatch.setAttribute("aria-hidden", "true");
+    entry.appendChild(swatch);
+    entry.appendChild(document.createTextNode(item.label));
+    legend.appendChild(entry);
+  });
+  scoreReport.appendChild(legend);
+
+  const chart = document.createElement("div");
+  chart.setAttribute("role", "img");
+  chart.setAttribute("aria-label", "Horizontale grafiek met scores ten opzichte van baanpar en personal par");
+  const maxCount = Math.max(1, ...courseParCounts, ...personalParCounts);
+  scoreCategories.forEach((category, index) => {
+    const row = document.createElement("div");
+    row.className = "score-chart-row";
+    const label = document.createElement("span");
+    label.className = "score-chart-label";
+    label.textContent = category.label;
+    row.appendChild(label);
+
+    const bars = document.createElement("div");
+    bars.className = "score-chart-bars";
+    [
+      {count:courseParCounts[index], total:scores.length, className:"course-par", label:"baanpar"},
+      {count:personalParCounts[index], total:personalParScores.length, className:"personal-par", label:"personal par"}
+    ].forEach(item => {
+      const line = document.createElement("div");
+      line.className = "score-bar-line";
+      line.setAttribute("aria-label", `${item.count} ${category.label.toLowerCase()} ten opzichte van ${item.label}`);
+      const track = document.createElement("span");
+      track.className = "score-bar-track";
+      const bar = document.createElement("span");
+      bar.className = `score-bar ${item.className}`;
+      bar.style.width = `${item.count / maxCount * 100}%`;
+      track.appendChild(bar);
+      line.appendChild(track);
+      const count = document.createElement("span");
+      const percentage = item.total
+        ? (item.count / item.total * 100).toLocaleString("nl-BE", {maximumFractionDigits:1})
+        : "0";
+      count.className = "score-bar-count";
+      count.textContent = `${item.count} (${percentage}%)`;
+      line.appendChild(count);
+      bars.appendChild(line);
+    });
+    row.appendChild(bars);
+    chart.appendChild(row);
+  });
+  scoreReport.appendChild(chart);
+  const personalParNote = document.createElement("p");
+  personalParNote.className = "note";
+  personalParNote.textContent = "Personal par is baanpar plus de extra slagen voor die hole.";
+  scoreReport.appendChild(personalParNote);
+}
+
+function countScoresByDelta(scores, getDelta, categories) {
+  const counts = categories.map(() => 0);
+  scores.forEach(score => {
+    const categoryIndex = categories.findIndex(category => category.matches(getDelta(score)));
+    if (categoryIndex !== -1) counts[categoryIndex] += 1;
+  });
+  return counts;
+}
+
+function averageValue(values) {
+  const numbers = values
+    .filter(value => value != null && value !== "")
+    .map(Number)
+    .filter(Number.isFinite);
+  return numbers.length
+    ? (numbers.reduce((sum, value) => sum + value, 0) / numbers.length)
+        .toLocaleString("nl-BE", {minimumFractionDigits:1, maximumFractionDigits:1})
+    : "—";
+}
+
+function applyHistoryFilters() {
+  renderFullHistory();
+}
+
+function resetHistoryFilters() {
+  document.getElementById("historyDateFrom").value = "";
+  document.getElementById("historyDateTo").value = "";
+  document.getElementById("historyCompetitionFilter").value = "all";
+  document.getElementById("historyTeeFilter").value = "all";
+  renderFullHistory();
+}
+
+function renderFullHistory() {
+  const list = document.getElementById("historyFullList");
+  if (!list) return;
+  const dateFrom = document.getElementById("historyDateFrom").value;
+  const dateTo = document.getElementById("historyDateTo").value;
+  const competition = document.getElementById("historyCompetitionFilter").value;
+  const tee = document.getElementById("historyTeeFilter").value;
+  const filteredRounds = historyRounds.filter(round => {
+    if (dateFrom && String(round.played_at || "") < dateFrom) return false;
+    if (dateTo && String(round.played_at || "") > dateTo) return false;
+    if (competition === "competition" && !round.is_competition) return false;
+    if (competition === "practice" && round.is_competition) return false;
+    if (tee !== "all" && round.tee !== tee) return false;
+    return true;
+  });
+  const prefix = historyDemoActive ? "Voorbeeldweergave — " : "";
+  document.getElementById("historyFullMessage").textContent =
+    `${prefix}${filteredRounds.length} van ${historyRounds.length} ronde(s) getoond.`;
+  renderHistoryTable(filteredRounds, historyDemoActive, list);
+}
+
 async function deleteRound(roundId, playedAt) {
   if (!db) return;
   if (!confirm(`Wil je de ronde van ${playedAt} definitief verwijderen?`)) return;
@@ -1532,7 +1966,10 @@ if (window.supabase) {
   // Toon accountstatus opnieuw wanneer de aanmeldstatus verandert.
   // Geen geheime sleutel staat in de clientcode.
   window.addEventListener("resize", () => {
-    if (!document.getElementById("historyPage").classList.contains("hidden")) loadHistory();
+    if (!document.getElementById("historyPage").classList.contains("hidden")) {
+      if (historyDemoActive) drawHistoryChart(historyRounds);
+      else loadHistory();
+    }
   });
 }
 
