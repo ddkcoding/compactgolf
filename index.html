@@ -224,6 +224,10 @@ tbody tr:nth-child(even) td { background: #f5f8f4; }
 #historyTable { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; }
 #historyTable th, #historyTable td { padding:5px 3px; border-bottom:1px solid #ddd; text-align:left; overflow-wrap:anywhere; }
 #historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; font-size:9px; text-transform:lowercase; }
+#historyTable th[aria-sort] { padding:0; }
+#historyTable .history-sort-button { width:100%; border:0; padding:5px 3px; background:transparent; color:inherit; font:inherit; text-align:inherit; text-transform:inherit; cursor:pointer; }
+#historyTable .history-sort-button:hover { background:#e8efe8; }
+#historyTable .history-sort-button:focus-visible { outline:2px solid #6b9b79; outline-offset:-2px; }
 #historyTable td { text-transform:lowercase; }
 #historyTable tbody tr:nth-child(even) { background:#fafbfa; }
 #historyTable th:nth-child(1), #historyTable td:nth-child(1) { width:17%; white-space:nowrap; }
@@ -1274,62 +1278,105 @@ async function loadHistory() {
   table.id = "historyTable";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  ["datum", "type", "tee", "hcp", "phcp", "slag", "putt", "pts", "actie"].forEach(label => {
-    const th = document.createElement("th");
-    th.scope = "col";
-    th.textContent = label;
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
   const teeNames = {red:"rood", blue:"blauw", yellow:"geel", white:"wit"};
   const formatHistoryDate = value => {
     if (!value) return "—";
     const parts = String(value).slice(0, 10).split("-");
     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}` : String(value);
   };
-  [...data].reverse().forEach(round => {
-    const tr = document.createElement("tr");
-    const roundType = (round.course_type || round.course || "—").replace(/^Rabbit Front 9$/i, "front 9");
-    const values = [
-      formatHistoryDate(round.played_at),
-      roundType,
-      teeNames[round.tee] || round.tee || "—",
-      round.handicap_index == null ? "—" : Number(round.handicap_index).toLocaleString("nl-BE", {maximumFractionDigits: 1}),
-      round.playing_handicap ?? "—",
-      round.total_strokes ?? "—",
-      round.total_putts ?? "—",
-      round.net_points ?? "—"
-    ];
-    values.forEach((value, index) => {
-      const td = document.createElement("td");
-      td.textContent = String(value);
-      if (index === 0) td.title = round.played_at || "";
-      if (index === 1) td.title = round.course_type || round.course || "";
-      tr.appendChild(td);
-    });
-    const deleteCell = document.createElement("td");
-    deleteCell.className = "delete-cell history-actions";
-    const edit = document.createElement("button");
-    edit.className = "edit-round";
-    edit.type = "button";
-    edit.textContent = "✏️";
-    edit.title = `Wijzig ronde van ${round.played_at}`;
-    edit.setAttribute("aria-label", `Wijzig ronde van ${round.played_at}`);
-    edit.onclick = () => editRound(round.id);
-    deleteCell.appendChild(edit);
-    const del = document.createElement("button");
-    del.className = "delete-round";
-    del.type = "button";
-    del.textContent = "🗑️";
-    del.title = `Verwijder ronde van ${round.played_at}`;
-    del.setAttribute("aria-label", `Verwijder ronde van ${round.played_at}`);
-    del.onclick = () => deleteRound(round.id, round.played_at);
-    deleteCell.appendChild(del);
-    tr.appendChild(deleteCell);
-    tbody.appendChild(tr);
+  const columns = [
+    {label:"datum", key:"played_at", value:round => round.played_at || null, display:round => formatHistoryDate(round.played_at)},
+    {label:"type", key:"type", value:round => round.course_type || round.course || null, display:round => (round.course_type || round.course || "—").replace(/^Rabbit Front 9$/i, "front 9")},
+    {label:"tee", key:"tee", value:round => teeNames[round.tee] || round.tee || null, display:round => teeNames[round.tee] || round.tee || "—"},
+    {label:"hcp", key:"handicap_index", numeric:true, value:round => round.handicap_index, display:round => round.handicap_index == null ? "—" : Number(round.handicap_index).toLocaleString("nl-BE", {maximumFractionDigits: 1})},
+    {label:"phcp", key:"playing_handicap", numeric:true, value:round => round.playing_handicap, display:round => round.playing_handicap ?? "—"},
+    {label:"slag", key:"total_strokes", numeric:true, value:round => round.total_strokes, display:round => round.total_strokes ?? "—"},
+    {label:"putt", key:"total_putts", numeric:true, value:round => round.total_putts, display:round => round.total_putts ?? "—"},
+    {label:"pts", key:"net_points", numeric:true, value:round => round.net_points, display:round => round.net_points ?? "—"}
+  ];
+  let sortKey = "played_at";
+  let sortDirection = "desc";
+  const sortButtons = new Map();
+  columns.forEach(column => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.setAttribute("aria-sort", column.key === sortKey ? "descending" : "none");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "history-sort-button";
+    button.setAttribute("aria-label", `Sorteer op ${column.label}`);
+    button.textContent = `${column.label} ${column.key === sortKey ? "↓" : "↕"}`;
+    button.onclick = () => {
+      sortDirection = sortKey === column.key && sortDirection === "asc" ? "desc" : "asc";
+      sortKey = column.key;
+      renderHistoryRows();
+    };
+    sortButtons.set(column.key, {th, button, label:column.label});
+    th.appendChild(button);
+    headerRow.appendChild(th);
   });
+  const actionHeader = document.createElement("th");
+  actionHeader.scope = "col";
+  actionHeader.textContent = "actie";
+  headerRow.appendChild(actionHeader);
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  const renderHistoryRows = () => {
+    const column = columns.find(item => item.key === sortKey);
+    const sortedRounds = [...data].sort((a, b) => {
+      const aValue = column.value(a);
+      const bValue = column.value(b);
+      if (aValue == null || aValue === "") return bValue == null || bValue === "" ? 0 : 1;
+      if (bValue == null || bValue === "") return -1;
+      const comparison = column.numeric
+        ? Number(aValue) - Number(bValue)
+        : String(aValue).localeCompare(String(bValue), "nl", {numeric:true, sensitivity:"base"});
+      return comparison === 0 ? 0 : comparison * (sortDirection === "asc" ? 1 : -1);
+    });
+    tbody.replaceChildren();
+    sortedRounds.forEach(round => {
+      const tr = document.createElement("tr");
+      columns.forEach((column, index) => {
+        const td = document.createElement("td");
+        td.textContent = String(column.display(round));
+        if (index === 0) td.title = round.played_at || "";
+        if (index === 1) td.title = round.course_type || round.course || "";
+        tr.appendChild(td);
+      });
+      const deleteCell = document.createElement("td");
+      deleteCell.className = "delete-cell history-actions";
+      const edit = document.createElement("button");
+      edit.className = "edit-round";
+      edit.type = "button";
+      edit.textContent = "✏️";
+      edit.title = `Wijzig ronde van ${round.played_at}`;
+      edit.setAttribute("aria-label", `Wijzig ronde van ${round.played_at}`);
+      edit.onclick = () => editRound(round.id);
+      deleteCell.appendChild(edit);
+      const del = document.createElement("button");
+      del.className = "delete-round";
+      del.type = "button";
+      del.textContent = "🗑️";
+      del.title = `Verwijder ronde van ${round.played_at}`;
+      del.setAttribute("aria-label", `Verwijder ronde van ${round.played_at}`);
+      del.onclick = () => deleteRound(round.id, round.played_at);
+      deleteCell.appendChild(del);
+      tr.appendChild(deleteCell);
+      tbody.appendChild(tr);
+    });
+    sortButtons.forEach(({th, button, label}, key) => {
+      const active = key === sortKey;
+      th.setAttribute("aria-sort", active ? (sortDirection === "asc" ? "ascending" : "descending") : "none");
+      button.textContent = `${label} ${active ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}`;
+      button.setAttribute("aria-label", `Sorteer op ${label}${active ? (sortDirection === "asc" ? ", oplopend" : ", aflopend") : ""}`);
+    });
+  };
+  const sortHint = document.createElement("p");
+  sortHint.className = "note";
+  sortHint.textContent = "Tik op een kolomtitel om de rondes te sorteren.";
+  list.appendChild(sortHint);
+  renderHistoryRows();
   table.appendChild(tbody);
   list.appendChild(table);
 }
