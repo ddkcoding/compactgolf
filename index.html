@@ -115,6 +115,8 @@ th { background: #e8efe8; color: var(--green); }
   font-size: 11px;
   line-height: 1.3;
 }
+.site-update { margin:18px auto 8px; text-align:center; }
+.site-update a { color:var(--green); }
 
 .topbar {
   display: flex;
@@ -340,6 +342,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
       <span>Aanmelden om je rondes online te bewaren.</span>
     </button>
   </div>
+  <p id="siteUpdateMessage" class="site-update note" role="status">Laatste update ophalen…</p>
 </section>
 
 <section id="accountPage" class="hidden">
@@ -505,6 +508,7 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 
   <div class="settings" style="margin-top:12px">
     <label>Datum <input type="date" id="rabbitDate"></label>
+    <label>Wedstrijd <input type="checkbox" id="rabbitCompetition" onchange="saveRabbitDraft()"></label>
     <button id="rabbitSaveButton" class="menu-button" style="padding:10px 14px" onclick="saveRabbitRound()">Ronde bewaren</button>
     <button id="cancelEditButton" class="menu-button hidden" style="padding:10px 14px;background:#666" onclick="cancelEditRound()">Annuleren</button>
   </div>
@@ -543,6 +547,37 @@ function showPage(page) {
   if (page === "history") loadHistory();
   if (page === "account") { refreshAuthStatus(); loadAccountDefaultHcp(); }
   window.scrollTo(0, 0);
+}
+
+async function loadLatestSiteUpdate() {
+  const message = document.getElementById("siteUpdateMessage");
+  if (!message) return;
+  try {
+    const response = await fetch("https://api.github.com/repos/ddkcoding/compactgolf/commits?per_page=1");
+    if (!response.ok) throw new Error(`GitHub API gaf status ${response.status}`);
+    const commits = await response.json();
+    const latestCommit = commits[0];
+    const commitDate = latestCommit && latestCommit.commit && latestCommit.commit.committer
+      && latestCommit.commit.committer.date;
+    if (!commitDate || !latestCommit.html_url) throw new Error("Commitdatum ontbreekt in het GitHub-antwoord.");
+
+    const date = new Date(commitDate);
+    if (Number.isNaN(date.getTime())) throw new Error("GitHub gaf een ongeldige commitdatum terug.");
+    const formattedDate = new Intl.DateTimeFormat("nl-BE", {
+      dateStyle:"long",
+      timeStyle:"short",
+      timeZone:"Europe/Brussels"
+    }).format(date);
+    const link = document.createElement("a");
+    link.href = latestCommit.html_url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = formattedDate;
+    message.replaceChildren(document.createTextNode("Laatste update: "), link);
+  } catch (error) {
+    message.textContent = "Laatste update kon niet worden geladen.";
+    console.warn("Laatste site-update laden mislukt:", error);
+  }
 }
 
 
@@ -793,6 +828,7 @@ function saveRabbitDraft() {
       tee: document.getElementById("tee").value,
       phcp: document.getElementById("phcpOverride").value,
       date: document.getElementById("rabbitDate").value,
+      competition: document.getElementById("rabbitCompetition").checked,
       scores: rabbitCourse.map(h => ({
         hole: h.hole,
         strokes: document.getElementById(`rs${h.hole}`).value,
@@ -816,6 +852,7 @@ function restoreRabbitDraft() {
   document.getElementById("tee").value = draft.tee || "blue";
   document.getElementById("phcpOverride").value = draft.phcp ?? "21";
   document.getElementById("rabbitDate").value = draft.date || new Date().toISOString().slice(0,10);
+  document.getElementById("rabbitCompetition").checked = Boolean(draft.competition);
   draft.scores.forEach(s => {
     if (!rabbitCourse.some(h => h.hole === Number(s.hole))) return;
     document.getElementById(`rs${s.hole}`).value = s.strokes ?? "";
@@ -1006,6 +1043,7 @@ function cancelEditRound() {
   document.getElementById("rabbitHcp").value = String(getDefaultHcp());
   document.getElementById("tee").value = "blue";
   document.getElementById("rabbitDate").value = "";
+  document.getElementById("rabbitCompetition").checked = false;
   rabbitCourse.forEach(h => {
     document.getElementById(`rs${h.hole}`).value = "";
     document.getElementById(`rp${h.hole}`).value = "";
@@ -1024,7 +1062,7 @@ async function editRound(roundId) {
   }
 
   const { data: round, error: roundError } = await db.from("golf_rounds")
-    .select("id, played_at, tee, handicap_index, playing_handicap")
+    .select("id, played_at, tee, handicap_index, playing_handicap, is_competition")
     .eq("id", roundId).eq("user_id", user.id).single();
   if (roundError || !round) {
     alert("De ronde kon niet worden geladen: " + (roundError?.message || "ronde niet gevonden"));
@@ -1047,6 +1085,7 @@ async function editRound(roundId) {
   document.getElementById("rabbitHcp").value = round.handicap_index ?? 45;
   document.getElementById("tee").value = round.tee || "blue";
   document.getElementById("rabbitDate").value = round.played_at || "";
+  document.getElementById("rabbitCompetition").checked = Boolean(round.is_competition);
   document.getElementById("phcpOverride").value = round.playing_handicap ?? 0;
   rabbitCourse.forEach(h => {
     const saved = holes.find(item => Number(item.hole_number) === h.hole);
@@ -1101,6 +1140,7 @@ async function saveRabbitRound() {
     played_at: playedAt,
     course: "Waregem Golf",
     course_type: "Rabbit Front 9",
+    is_competition: document.getElementById("rabbitCompetition").checked,
     tee,
     handicap_index: hcp,
     playing_handicap: phcp,
@@ -1262,7 +1302,7 @@ async function loadHistory() {
     return;
   }
   const { data, error } = await db.from("golf_rounds")
-    .select("id, played_at, course, course_type, tee, handicap_index, playing_handicap, total_strokes, total_putts, gross_points, net_points")
+    .select("id, played_at, course, course_type, tee, handicap_index, playing_handicap, total_strokes, total_putts, gross_points, net_points, is_competition")
     .eq("user_id", user.id)
     .order("played_at", { ascending: true });
   if (error) {
@@ -1340,7 +1380,17 @@ async function loadHistory() {
       columns.forEach((column, index) => {
         const td = document.createElement("td");
         td.textContent = String(column.display(round));
-        if (index === 0) td.title = round.played_at || "";
+        if (index === 0) {
+          td.title = round.played_at || "";
+          if (round.is_competition) {
+            const icon = document.createElement("span");
+            icon.textContent = " 🏆";
+            icon.title = "Wedstrijd";
+            icon.setAttribute("role", "img");
+            icon.setAttribute("aria-label", "Wedstrijd");
+            td.appendChild(icon);
+          }
+        }
         if (index === 1) td.title = round.course_type || round.course || "";
         tr.appendChild(td);
       });
@@ -1488,6 +1538,7 @@ if (window.supabase) {
 
 document.getElementById("rabbitDate").value = new Date().toISOString().slice(0,10);
 document.getElementById("rabbitHcp").value = String(getDefaultHcp());
+loadLatestSiteUpdate();
 // Ook putts en datum bewaren direct bij elke wijziging.
 rabbitCourse.forEach(h => document.getElementById(`rp${h.hole}`).addEventListener("input", saveRabbitDraft));
 document.getElementById("rabbitDate").addEventListener("change", saveRabbitDraft);
