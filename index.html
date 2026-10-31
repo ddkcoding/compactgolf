@@ -70,7 +70,9 @@ th { background: #e8efe8; color: var(--green); }
 .landing-dashboard { max-width:520px; margin:0 auto 12px; }
 .landing-dashboard-title { min-height:14px; margin:0 2px 7px; }
 .landing-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.landing-kpi { background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:12px; padding:11px 10px; text-align:left; min-width:0; box-shadow:0 2px 6px rgba(23,61,42,.045); display:grid; grid-template-columns:minmax(0,1fr) 76px; align-items:center; gap:5px; min-height:82px; }
+.landing-kpi { width:100%; background:linear-gradient(145deg,#fff,#edf4ee); border:1px solid #d1ddd2; border-radius:12px; padding:11px 10px; text-align:left; min-width:0; box-shadow:0 2px 6px rgba(23,61,42,.045); display:grid; grid-template-columns:minmax(0,1fr) 76px; align-items:center; gap:5px; min-height:82px; color:inherit; font:inherit; cursor:pointer; }
+.landing-kpi:hover { border-color:#9bb59d; box-shadow:0 3px 9px rgba(23,61,42,.11); }
+.landing-kpi:focus-visible { outline:2px solid #6b9b79; outline-offset:2px; }
 .landing-kpi-copy { min-width:0; }
 .landing-kpi strong { display:block; color:var(--green); font-size:23px; line-height:1.2; }
 .landing-kpi span { display:block; color:#52665a; font-size:11px; margin-top:4px; line-height:1.2; }
@@ -336,10 +338,10 @@ button:disabled { opacity:.5; cursor:not-allowed; }
   <div class="landing-dashboard" aria-label="Persoonlijk golfdashboard">
     <div class="landing-dashboard-title" aria-hidden="true"></div>
     <div class="landing-kpis">
-      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></div><svg class="landing-sparkline" id="landingHcpSpark" viewBox="0 0 76 36" aria-label="HCP evolutie" role="img"></svg></div>
-      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingRoundsKpi">—</strong><span>Aantal rondes</span></div></div>
-      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingPointsKpi">—</strong><span>Gem. punten</span></div><svg class="landing-sparkline" id="landingPointsSpark" viewBox="0 0 76 36" aria-label="Punten evolutie" role="img"></svg></div>
-      <div class="landing-kpi"><div class="landing-kpi-copy"><strong id="landingStrokesKpi">—</strong><span>Gem. slagen · Front 9</span></div><svg class="landing-sparkline" id="landingStrokesSpark" viewBox="0 0 76 36" aria-label="Slagen evolutie" role="img"></svg></div>
+      <button type="button" class="landing-kpi" aria-label="Bekijk HCP-evolutie in de historiek" onclick="openHistoryMetric('handicap_index')"><span class="landing-kpi-copy"><strong id="landingHcpKpi">—</strong><span>Huidige HCP</span></span><svg class="landing-sparkline" id="landingHcpSpark" viewBox="0 0 76 36" aria-hidden="true"></svg></button>
+      <button type="button" class="landing-kpi" aria-label="Bekijk alle rondes in de historiek" onclick="openHistoryMetric('net_points')"><span class="landing-kpi-copy"><strong id="landingRoundsKpi">—</strong><span>Aantal rondes</span></span></button>
+      <button type="button" class="landing-kpi" aria-label="Bekijk de evolutie van nettopunten in de historiek" onclick="openHistoryMetric('net_points')"><span class="landing-kpi-copy"><strong id="landingPointsKpi">—</strong><span>Gem. punten</span></span><svg class="landing-sparkline" id="landingPointsSpark" viewBox="0 0 76 36" aria-hidden="true"></svg></button>
+      <button type="button" class="landing-kpi" aria-label="Bekijk de evolutie van totaal slagen in de historiek" onclick="openHistoryMetric('total_strokes')"><span class="landing-kpi-copy"><strong id="landingStrokesKpi">—</strong><span>Gem. slagen · Front 9</span></span><svg class="landing-sparkline" id="landingStrokesSpark" viewBox="0 0 76 36" aria-hidden="true"></svg></button>
     </div>
     <p id="landingDashboardMessage">Meld je aan om je persoonlijke cijfers te bekijken.</p>
   </div>
@@ -597,6 +599,14 @@ button:disabled { opacity:.5; cursor:not-allowed; }
 /* =====================================
    NAVIGATIE
 ===================================== */
+
+function openHistoryMetric(metric) {
+  const metricSelect = document.getElementById("historyMetric");
+  if (metricSelect && [...metricSelect.options].some(option => option.value === metric)) {
+    metricSelect.value = metric;
+  }
+  showPage("history");
+}
 
 function showPage(page) {
   ["landing","compactPage","rabbitPage","accountPage","historyPage","historyFullPage"].forEach(id => {
