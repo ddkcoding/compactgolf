@@ -229,19 +229,29 @@ tbody tr:nth-child(even) td { background: #f5f8f4; }
 .history-report h3 { margin:12px 0 6px; color:var(--green); font-size:14px; }
 .history-report table { font-size:11px; }
 .history-report th, .history-report td { padding:5px 3px; }
-.score-chart-legend { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0; font-size:11px; color:#52665a; }
-.score-chart-legend span { display:inline-flex; align-items:center; gap:5px; }
-.score-chart-swatch { display:inline-block; width:12px; height:12px; border-radius:3px; }
-.score-chart-swatch.course-par, .score-bar.course-par { background:#7eaa8b; }
-.score-chart-swatch.personal-par, .score-bar.personal-par { background:#315f91; }
-.score-chart-row { display:grid; grid-template-columns:112px minmax(0,1fr); gap:8px; align-items:center; padding:5px 0; border-bottom:1px solid #e4e9e4; }
-.score-chart-label { font-size:11px; }
-.score-chart-bars { display:grid; gap:3px; }
-.score-bar-line { display:grid; grid-template-columns:minmax(0,1fr) 25px; gap:6px; align-items:center; min-height:11px; }
-.score-bar-track { height:10px; border-radius:5px; background:#eef2ee; overflow:hidden; }
-.score-bar { display:block; height:100%; min-width:0; border-radius:5px; }
-.score-bar-count { font-size:10px; text-align:right; color:#52665a; }
-@media (max-width:430px) { .score-chart-row { grid-template-columns:86px minmax(0,1fr); gap:5px; } }
+.history-report th[aria-sort] { padding:0; }
+.history-report .history-sort-button { width:100%; border:0; padding:5px 3px; background:transparent; color:inherit; font:inherit; text-align:inherit; cursor:pointer; }
+.history-report .history-sort-button:hover { background:#e8efe8; }
+.history-report .history-sort-button:focus-visible { outline:2px solid #6b9b79; outline-offset:-2px; }
+.score-distribution { padding:0; }
+.score-distribution h3 { margin:0 0 3px; color:#203128; font-size:16px; }
+.score-distribution-subtitle { margin:0 0 10px; color:#68776d; font-size:12px; }
+.score-basis-toggle { display:flex; gap:6px; margin:0 0 9px; }
+.score-basis-button { border:1px solid #cbd6cc; border-radius:7px; padding:5px 9px; background:#fff; color:#31523d; font:inherit; font-size:11px; cursor:pointer; }
+.score-basis-button[aria-pressed="true"] { border-color:#315f91; background:#315f91; color:#fff; }
+.score-basis-button:focus-visible { outline:2px solid #6b9b79; outline-offset:2px; }
+.score-chart-row { display:grid; grid-template-columns:94px minmax(0,1fr) 22px; gap:8px; align-items:center; min-height:30px; }
+.score-chart-label { font-size:12px; }
+.score-bar-track { height:10px; border-radius:6px; background:#edf1ed; overflow:hidden; }
+.score-bar { display:block; height:100%; min-width:0; border-radius:6px; transition:width .2s ease; }
+.score-bar.better { background:#c5a044; }
+.score-bar.birdie { background:#c5a044; }
+.score-bar.par { background:#4d8c68; }
+.score-bar.bogey { background:#cd806d; }
+.score-bar.double { background:#cd806d; }
+.score-bar.triple { background:#cd806d; }
+.score-bar-count { font-size:12px; font-weight:700; text-align:right; color:#203128; }
+@media (max-width:430px) { .score-chart-row { grid-template-columns:82px minmax(0,1fr) 20px; gap:6px; } }
 #historyTable { width:100%; max-width:100%; table-layout:fixed; border-collapse:collapse; font-size:11px; }
 #historyTable th, #historyTable td { padding:5px 3px; border-bottom:1px solid #ddd; text-align:left; overflow-wrap:anywhere; }
 #historyTable th { background:#f3f6f3; color:#173d2a; font-weight:700; font-size:9px; text-transform:lowercase; }
@@ -419,10 +429,9 @@ button:disabled { opacity:.5; cursor:not-allowed; }
     </div>
   </div>
   <div class="summary history-report">
+    <div id="scoreReport"></div>
     <h3>Rapportering per hole</h3>
     <div id="holeReport"></div>
-    <h3>Verdeling van scores</h3>
-    <div id="scoreReport"></div>
   </div>
   <h3>Meest recente rondes</h3>
   <div id="historyList" aria-live="polite"></div>
@@ -1696,50 +1705,92 @@ function renderHoleReports(rounds, holeScores, demo = false) {
   const holeTable = document.createElement("table");
   const holeHead = document.createElement("thead");
   const holeHeader = document.createElement("tr");
-  ["Hole", "Par", "Rondes", "Gem. slagen", "Gem. putts", "Gem. nettopunten"].forEach(label => {
+  const holeColumns = [
+    {label:"Hole", value:row => row.hole, display:String},
+    {label:"Par", value:row => row.par, display:String},
+    {label:"Rondes", value:row => row.rounds, display:String},
+    {label:"Gem. slagen", value:row => row.strokes, display:formatAverage},
+    {label:"Gem. putts", value:row => row.putts, display:formatAverage},
+    {label:"Gem. nettopunten", value:row => row.netPoints, display:formatAverage}
+  ];
+  let holeSortIndex = 0;
+  let holeSortDirection = "asc";
+  const holeSortButtons = [];
+  holeColumns.forEach((column, index) => {
     const th = document.createElement("th");
     th.scope = "col";
-    th.textContent = label;
+    th.setAttribute("aria-sort", index === holeSortIndex ? "ascending" : "none");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "history-sort-button";
+    button.textContent = `${column.label} ${index === holeSortIndex ? "↑" : "↕"}`;
+    button.setAttribute("aria-label", `Sorteer op ${column.label}${index === holeSortIndex ? ", oplopend" : ""}`);
+    button.onclick = () => {
+      holeSortDirection = holeSortIndex === index && holeSortDirection === "asc" ? "desc" : "asc";
+      holeSortIndex = index;
+      renderHoleRows();
+    };
+    holeSortButtons.push({th, button, label:column.label});
+    th.appendChild(button);
     holeHeader.appendChild(th);
   });
   holeHead.appendChild(holeHeader);
   holeTable.appendChild(holeHead);
   const holeBody = document.createElement("tbody");
-  rabbitCourse.forEach(hole => {
+  const holeRows = rabbitCourse.map(hole => {
     const holeRoundScores = scores.filter(score => Number(score.hole_number) === hole.hole);
-    const row = document.createElement("tr");
     const netPoints = holeRoundScores
       .filter(score => score.net_points != null)
       .map(score => Number(score.net_points))
       .filter(Number.isFinite);
-    const values = [
-      hole.hole,
-      hole.par,
-      holeRoundScores.length,
-      averageValue(holeRoundScores.map(score => score.strokes)),
-      averageValue(holeRoundScores.map(score => score.putts)),
-      averageValue(netPoints)
-    ];
-    values.forEach(value => {
-      const td = document.createElement("td");
-      td.textContent = String(value);
-      row.appendChild(td);
-    });
-    holeBody.appendChild(row);
+    return {
+      hole:hole.hole,
+      par:hole.par,
+      rounds:holeRoundScores.length,
+      strokes:averageNumber(holeRoundScores.map(score => score.strokes)),
+      putts:averageNumber(holeRoundScores.map(score => score.putts)),
+      netPoints:averageNumber(netPoints)
+    };
   });
+  const renderHoleRows = () => {
+    const column = holeColumns[holeSortIndex];
+    const sortedRows = [...holeRows].sort((a, b) => {
+      const aValue = column.value(a);
+      const bValue = column.value(b);
+      if (aValue == null || bValue == null) return aValue == null ? (bValue == null ? 0 : 1) : -1;
+      const comparison = aValue - bValue;
+      return comparison * (holeSortDirection === "asc" ? 1 : -1);
+    });
+    holeBody.replaceChildren();
+    sortedRows.forEach(holeRow => {
+      const row = document.createElement("tr");
+      holeColumns.forEach(column => {
+        const td = document.createElement("td");
+        const value = column.value(holeRow);
+        td.textContent = column.display(value);
+        row.appendChild(td);
+      });
+      holeBody.appendChild(row);
+    });
+    holeSortButtons.forEach(({th, button, label}, index) => {
+      const active = index === holeSortIndex;
+      const direction = holeSortDirection === "asc" ? "ascending" : "descending";
+      th.setAttribute("aria-sort", active ? direction : "none");
+      button.textContent = `${label} ${active ? (holeSortDirection === "asc" ? "↑" : "↓") : "↕"}`;
+      button.setAttribute("aria-label", `Sorteer op ${label}${active ? (holeSortDirection === "asc" ? ", oplopend" : ", aflopend") : ""}`);
+    });
+  };
+  renderHoleRows();
   holeTable.appendChild(holeBody);
   holeReport.appendChild(holeTable);
 
   const scoreCategories = [
-    {label:"Albatros of beter", matches:delta => delta <= -3},
-    {label:"Eagle", matches:delta => delta === -2},
-    {label:"Birdie", matches:delta => delta === -1},
-    {label:"Par", matches:delta => delta === 0},
-    {label:"Bogey", matches:delta => delta === 1},
-    {label:"Double bogey", matches:delta => delta === 2},
-    {label:"Triple bogey", matches:delta => delta === 3},
-    {label:"Quadruple bogey", matches:delta => delta === 4},
-    {label:"Quintuple bogey of hoger", matches:delta => delta >= 5}
+    {label:"Eagle of beter", barClass:"better", matches:delta => delta <= -2},
+    {label:"Birdie", barClass:"birdie", matches:delta => delta === -1},
+    {label:"Par", barClass:"par", matches:delta => delta === 0},
+    {label:"Bogey", barClass:"bogey", matches:delta => delta === 1},
+    {label:"Double bogey", barClass:"double", matches:delta => delta === 2},
+    {label:"Triple bogey of hoger", barClass:"triple", matches:delta => delta >= 3}
   ];
   const courseParCounts = countScoresByDelta(scores, score => Number(score.strokes) - Number(score.par), scoreCategories);
   const personalParScores = scores.filter(score => score.extra_strokes != null && Number.isFinite(Number(score.extra_strokes)));
@@ -1748,67 +1799,67 @@ function renderHoleReports(rounds, holeScores, demo = false) {
     score => Number(score.strokes) - Number(score.par) - Number(score.extra_strokes),
     scoreCategories
   );
-  const legend = document.createElement("div");
-  legend.className = "score-chart-legend";
-  [
-    {label:`Baanpar (${scores.length} holes)`, className:"course-par"},
-    {label:`Personal par (${personalParScores.length} holes)`, className:"personal-par"}
-  ].forEach(item => {
-    const entry = document.createElement("span");
-    const swatch = document.createElement("i");
-    swatch.className = `score-chart-swatch ${item.className}`;
-    swatch.setAttribute("aria-hidden", "true");
-    entry.appendChild(swatch);
-    entry.appendChild(document.createTextNode(item.label));
-    legend.appendChild(entry);
-  });
-  scoreReport.appendChild(legend);
+  const distribution = document.createElement("section");
+  distribution.className = "score-distribution";
+  const title = document.createElement("h3");
+  title.textContent = "Verdeling per hole-resultaat";
+  distribution.appendChild(title);
+  const subtitle = document.createElement("p");
+  subtitle.className = "score-distribution-subtitle";
+  distribution.appendChild(subtitle);
 
+  const toggle = document.createElement("div");
+  toggle.className = "score-basis-toggle";
+  toggle.setAttribute("role", "group");
+  toggle.setAttribute("aria-label", "Kies par voor scoreverdeling");
   const chart = document.createElement("div");
-  chart.setAttribute("role", "img");
-  chart.setAttribute("aria-label", "Horizontale grafiek met scores ten opzichte van baanpar en personal par");
-  const maxCount = Math.max(1, ...courseParCounts, ...personalParCounts);
-  scoreCategories.forEach((category, index) => {
-    const row = document.createElement("div");
-    row.className = "score-chart-row";
-    const label = document.createElement("span");
-    label.className = "score-chart-label";
-    label.textContent = category.label;
-    row.appendChild(label);
-
-    const bars = document.createElement("div");
-    bars.className = "score-chart-bars";
+  const renderDistribution = basis => {
+    const isPersonalPar = basis === "personal";
+    const counts = isPersonalPar ? personalParCounts : courseParCounts;
+    const total = isPersonalPar ? personalParScores.length : scores.length;
+    const maxCount = Math.max(1, ...counts);
+    subtitle.textContent = `Hoe vaak je elke score ten opzichte van ${isPersonalPar ? "personal par" : "baanpar"} speelt (${total} holes).`;
+    toggle.replaceChildren();
     [
-      {count:courseParCounts[index], total:scores.length, className:"course-par", label:"baanpar"},
-      {count:personalParCounts[index], total:personalParScores.length, className:"personal-par", label:"personal par"}
-    ].forEach(item => {
-      const line = document.createElement("div");
-      line.className = "score-bar-line";
-      line.setAttribute("aria-label", `${item.count} ${category.label.toLowerCase()} ten opzichte van ${item.label}`);
+      {label:"Baanpar", value:"course"},
+      {label:"Personal par", value:"personal"}
+    ].forEach(option => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "score-basis-button";
+      button.textContent = option.label;
+      button.setAttribute("aria-pressed", String(basis === option.value));
+      button.onclick = () => renderDistribution(option.value);
+      toggle.appendChild(button);
+    });
+
+    chart.replaceChildren();
+    chart.setAttribute("aria-label", `${isPersonalPar ? "Personal par" : "Baanpar"} scoreverdeling, ${total} holes`);
+    scoreCategories.forEach((category, index) => {
+      const row = document.createElement("div");
+      row.className = "score-chart-row";
+      const label = document.createElement("span");
+      label.className = "score-chart-label";
+      label.textContent = category.label;
+      row.appendChild(label);
       const track = document.createElement("span");
       track.className = "score-bar-track";
       const bar = document.createElement("span");
-      bar.className = `score-bar ${item.className}`;
-      bar.style.width = `${item.count / maxCount * 100}%`;
+      bar.className = `score-bar ${category.barClass}`;
+      bar.style.width = `${counts[index] / maxCount * 100}%`;
       track.appendChild(bar);
-      line.appendChild(track);
+      row.appendChild(track);
       const count = document.createElement("span");
-      const percentage = item.total
-        ? (item.count / item.total * 100).toLocaleString("nl-BE", {maximumFractionDigits:1})
-        : "0";
       count.className = "score-bar-count";
-      count.textContent = `${item.count} (${percentage}%)`;
-      line.appendChild(count);
-      bars.appendChild(line);
+      count.textContent = String(counts[index]);
+      row.appendChild(count);
+      chart.appendChild(row);
     });
-    row.appendChild(bars);
-    chart.appendChild(row);
-  });
-  scoreReport.appendChild(chart);
-  const personalParNote = document.createElement("p");
-  personalParNote.className = "note";
-  personalParNote.textContent = "Personal par is baanpar plus de extra slagen voor die hole.";
-  scoreReport.appendChild(personalParNote);
+  };
+  distribution.appendChild(toggle);
+  distribution.appendChild(chart);
+  scoreReport.appendChild(distribution);
+  renderDistribution("course");
 }
 
 function countScoresByDelta(scores, getDelta, categories) {
@@ -1820,15 +1871,18 @@ function countScoresByDelta(scores, getDelta, categories) {
   return counts;
 }
 
-function averageValue(values) {
+function averageNumber(values) {
   const numbers = values
     .filter(value => value != null && value !== "")
     .map(Number)
     .filter(Number.isFinite);
-  return numbers.length
-    ? (numbers.reduce((sum, value) => sum + value, 0) / numbers.length)
-        .toLocaleString("nl-BE", {minimumFractionDigits:1, maximumFractionDigits:1})
-    : "—";
+  return numbers.length ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length : null;
+}
+
+function formatAverage(value) {
+  return value == null
+    ? "—"
+    : Number(value).toLocaleString("nl-BE", {minimumFractionDigits:1, maximumFractionDigits:1});
 }
 
 function applyHistoryFilters() {
